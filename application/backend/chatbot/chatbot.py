@@ -16,7 +16,6 @@ class Chatbot:
     def __init__(self):
         """
         Initialize the chatbot
-        :param session_id: mostly generated automatically, but can be set manually
         """
         self.chatvec = ChatbotVectorDatabase()
         pass
@@ -33,7 +32,8 @@ class Chatbot:
         #TODO format the conversation history
         history = format_chat_history(conversation)
 
-        #TODO get the document from the model
+        #TODO process the question
+
         docs_from_vdb = self.chatvec.search(
             query=question,
             k=3,
@@ -66,6 +66,8 @@ class Chatbot:
             yield f"{json.dumps(data_to_send)}\n\n"
             answer += chunk
 
+
+        #TODO discuss the structure of the final data with frontend
         final_data = {
             "data": {
                 "full_answer": answer,
