@@ -17,3 +17,8 @@ class Conversation(BaseModel):
     """
     conversation: list[Message]
     chat_uuid: Optional[str] = None
+
+
+#TODO format_chat_history function
+def format_chat_history(conversation: Conversation) -> str:
+    pass
