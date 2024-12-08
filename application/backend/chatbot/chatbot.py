@@ -1,16 +1,18 @@
-from application.backend.chatbot.conversation import Conversation, format_chat_history
-from langchain_openai import AzureChatOpenAI
+import asyncio
 import os
-from langchain_core.runnables import RunnablePassthrough
-from langchain.schema import StrOutputParser
 import json
 
+from dotenv import load_dotenv
+
+from application.backend.chatbot.conversation import Conversation, format_chat_history
 from application.backend.chatbot.prompts import ANSWER_PROMPT
 from application.backend.datastore.db import ChatbotVectorDatabase
+from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnablePassthrough
+from langchain.schema import StrOutputParser
 
-openai_api_key = os.getenv("AZURE_OPENAI_API_KEY")
-azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-
+load_dotenv()
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 class Chatbot:
     def __init__(self):
@@ -18,39 +20,42 @@ class Chatbot:
         Initialize the chatbot
         """
         self.chatvec = ChatbotVectorDatabase()
+        self.conversation_history = Conversation(conversation=[])
         pass
 
     async def chat_stream(
             self, question: str, conversation: Conversation):
-        llm = AzureChatOpenAI(
-            openai_api_version="2023-05-15",
-            deployment_name="ChatbotMGT",
-            azure_endpoint=azure_endpoint,
+        """
+        Generate responses using OpenAI and maintain conversation history.
+        """
+        llm = ChatOpenAI(
+            model="gpt-4o-mini",  # Use the appropriate OpenAI model
+            temperature=0.7,  # Adjust as needed
             openai_api_key=openai_api_key,
+            streaming=True
         )
 
-        #TODO format the conversation history
-        history = format_chat_history(conversation)
+        # Format the conversation history into a LangChain-compatible format
+        history = conversation.get_history()
 
-        #TODO process the question
-
+        # Search for related documents in the vector database
         docs_from_vdb = self.chatvec.search(
             query=question,
             k=3,
         )
 
+        # Create context from retrieved documents
         context = ""
-
         for i, res in enumerate(docs_from_vdb):
             replaced_text = res.text.replace('\n', ' ')
             context += f"Document Index: {i + 1}, {replaced_text}, {res.subtopic} \n"
 
-
+        # Create the conversational QA chain
         conversational_qa_chain = (
                 {
                     "context": lambda x: context,
                     "question": RunnablePassthrough(),
-                    "chat_history": RunnablePassthrough(),
+                    "chat_history": lambda x: history,  # Pass the formatted history
                 }
                 | ANSWER_PROMPT
                 | llm
@@ -59,6 +64,7 @@ class Chatbot:
 
         answer = ""
 
+        # Stream the response from the QA chain
         async for chunk in conversational_qa_chain.astream(
                 {"question": question, "chat_history": history}
         ):
@@ -66,8 +72,11 @@ class Chatbot:
             yield f"{json.dumps(data_to_send)}\n\n"
             answer += chunk
 
+        # Add the question and answer to the conversation history
+        conversation.add_message("user", question)
+        conversation.add_message("bot", answer)
 
-        #TODO discuss the structure of the final data with frontend
+        # Structure the final data
         final_data = {
             "data": {
                 "full_answer": answer,
@@ -75,3 +84,37 @@ class Chatbot:
         }
 
         yield f"{json.dumps(final_data)}\n\n"
+
+
+async def main():
+    """
+    Main function to test chatbot locally in terminal.
+    """
+    bot = Chatbot()
+
+    print("Chatbot initialized. Type 'quit' to exit.")
+
+    while True:
+        usr_input = input("User: ").strip()
+        if usr_input.lower() == "quit":
+            print("Exiting chatbot. Goodbye!")
+            break
+
+        # Stream responses from the bot
+        print("Bot:", end=" ", flush=True)  # Print "Bot:" as a prefix for responses
+        async for r in bot.chat_stream(usr_input, bot.conversation_history):
+            try:
+                response_dict = json.loads(r)
+                if "data" in response_dict and "full_answer" in response_dict["data"]:
+                    # Print the full answer once available
+                    print(response_dict["data"]["full_answer"])
+                    break  # No need to keep the stream open
+                elif "data" in response_dict and "stream" in response_dict["data"]:
+                    # Print the streaming response
+                    print(response_dict["data"]["stream"], end="", flush=True)
+            except json.JSONDecodeError:
+                print("Error: Unable to parse response.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
