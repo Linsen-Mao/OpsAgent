@@ -9,7 +9,7 @@ load_dotenv(find_dotenv())
 app = FastAPI()
 bot = Chatbot()
 
-@app.post("/chat_stream/")
+@app.post("/chat/")
 async def chat_stream_endpoint(question: str, conversation: Conversation) -> EventSourceResponse:
     """
     Ask a question to the chatbot and return the answer as a stream
