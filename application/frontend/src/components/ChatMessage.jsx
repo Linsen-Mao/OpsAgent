@@ -8,9 +8,9 @@ const ChatMessage = ({ sender, content }) => {
     <div className={`chat-message ${sender === "bot" ? "bot" : "user"}`}>
       <div className="chat-bubble">
         {sender === "bot" ? (
-          <div className="avatar bot-avatar">🤖</div>
+          <div className="avatar bot-avatar">gi🦉</div>
         ) : (
-          <div className="avatar user-avatar">👤</div>
+          <div className="avatar user-avatar">🦥</div>
         )}
         <div className="message-content">{content}</div>
       </div>
