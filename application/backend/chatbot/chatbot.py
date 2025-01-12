@@ -41,7 +41,7 @@ class Chatbot:
         # Search for related documents in the vector database
         docs_from_vdb = self.chatvec.search(
             query=question,
-            k=3,
+            top_k=3,
         )
 
         # Create context from retrieved documents
