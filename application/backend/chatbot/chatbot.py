@@ -47,8 +47,8 @@ class Chatbot:
         # Create context from retrieved documents
         context = ""
         for i, res in enumerate(docs_from_vdb):
-            replaced_text = res.text.replace('\n', ' ')
-            context += f"Document Index: {i + 1}, {replaced_text}, {res.subtopic} \n"
+            replaced_text = res['text'].replace('\n', ' ')
+            context += f"Document Index: {i + 1}, {replaced_text}\n"
 
         # Create the conversational QA chain
         conversational_qa_chain = (
