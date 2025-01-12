@@ -191,9 +191,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-    combined_embedding = [sum(x) / len(x) for x in zip(*embeddings)]
-    return combined_embedding
-
 def calculate_embedding_cost(num_tokens, model="text-embedding-3-large"):
     """Calculate the cost of embeddings based on token count."""
     cost_per_1000_tokens = 0.0001  # Cost for text-embedding-3-large
