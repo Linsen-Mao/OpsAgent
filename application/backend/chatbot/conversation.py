@@ -94,10 +94,6 @@ class Conversation(BaseModel):
                 self.conversation.append(Message(sender="bot", content=msg.content))
 
 
-#TODO format_chat_history function
-# def format_chat_history(conversation: Conversation) -> str:
-#     pass
-
 def format_chat_history(conversation: Conversation) -> str:
     """
     Format chat history to a string. If the length of the conversation messages is more than 4,
