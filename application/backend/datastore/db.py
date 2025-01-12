@@ -15,7 +15,7 @@ class ChatbotVectorDatabase:
         self.database = self.cosmos_client.get_database_client(self.COSMOS_DATABASE_NAME)
         self.container = self.database.get_container_client(self.COSMOS_CONTAINER_NAME)
         # Initialize OpenAI client
-        self.openai_client = OpenAI(api_key="")
+        self.openai_client = OpenAI(api_key="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")
 
     @staticmethod
     def cosine_similarity(vec1, vec2):
