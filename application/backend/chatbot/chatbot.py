@@ -78,6 +78,7 @@ class Chatbot:
 
         # Structure the final data
         final_data = {
+            "type": "final",
             "data": {
                 "full_answer": answer,
             },
