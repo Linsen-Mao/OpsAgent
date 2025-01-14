@@ -23,7 +23,7 @@ class Chatbot:
         self.conversation_history = Conversation(conversation=[])
         pass
 
-    async def chat_stream(
+    def chat_stream(
             self, question: str, conversation: Conversation):
         """
         Generate responses using OpenAI and maintain conversation history.
@@ -32,7 +32,7 @@ class Chatbot:
             model="gpt-4o-mini",  # Use the appropriate OpenAI model
             temperature=0.7,  # Adjust as needed
             openai_api_key=openai_api_key,
-            streaming=True
+            streaming= False
         )
 
         # Format the conversation history into a LangChain-compatible format
@@ -64,27 +64,16 @@ class Chatbot:
 
         answer = ""
 
+
         # Stream the response from the QA chain
-        async for chunk in conversational_qa_chain.astream(
+        for chunk in conversational_qa_chain.stream(
                 {"question": question, "chat_history": history}
         ):
             # data_to_send = {"type": "stream", "data": chunk}
             # yield f"{json.dumps(data_to_send)}\n\n"
             answer += chunk
 
-        # Add the question and answer to the conversation history
-        conversation.add_message("user", question)
-        conversation.add_message("bot", answer)
-
-        # Structure the final data
-        final_data = {
-            "type": "final",
-            "data": {
-                "full_answer": answer,
-            },
-        }
-
-        yield f"{json.dumps(final_data)}\n\n"
+        return answer
 
 
 async def main():
