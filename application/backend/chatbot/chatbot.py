@@ -68,8 +68,8 @@ class Chatbot:
         async for chunk in conversational_qa_chain.astream(
                 {"question": question, "chat_history": history}
         ):
-            data_to_send = {"type": "stream", "data": chunk}
-            yield f"{json.dumps(data_to_send)}\n\n"
+            # data_to_send = {"type": "stream", "data": chunk}
+            # yield f"{json.dumps(data_to_send)}\n\n"
             answer += chunk
 
         # Add the question and answer to the conversation history
