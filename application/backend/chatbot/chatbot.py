@@ -77,13 +77,6 @@ class Chatbot:
         conversation.add_message("bot", answer)
 
         # Structure the final data
-        #final_data = {
-        #    "data": {
-        #        "full_answer": answer,
-        #    },
-        #}
-
-        # Structure the final data
         final_data = {
             "type": "final",
             "data": {
