@@ -69,13 +69,11 @@ def ecommerce_chat_tool(state: Annotated[dict, InjectedState]) -> str:
             sender = "user"
         elif isinstance(message, AIMessage):
             sender = "assistant"
-        elif isinstance(message, ToolMessage):
-            sender = "tool"
         else:
             sender = "unknown"  # Fallback if type isn't recognized
 
         conversation_data.append({
-            "sender": sender,
+            "role": sender,
             "content": message.content
         })
 
