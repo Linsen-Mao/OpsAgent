@@ -25,8 +25,8 @@ class Chatbot:
     def chat_stream(
             self, question: str, conversation: Conversation):
         llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.7,
+            model="gpt-4o",
+            temperature=0,
             openai_api_key=openai_api_key,
             streaming= False
         )

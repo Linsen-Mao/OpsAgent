@@ -17,3 +17,4 @@ pytest
 numpy
 azure-cosmos
 langgraph
+openpyxl
