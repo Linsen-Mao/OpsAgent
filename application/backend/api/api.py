@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage
 
 from application.backend.chatbot.chatbot import Chatbot
-from application.backend.chatbot.chatbot_ReAct import graph
+from application.backend.chatbot.chatbot_supervisor import graph
 
 
 load_dotenv(find_dotenv())
@@ -28,17 +28,26 @@ def read_root():
     """Root endpoint."""
     return {"message": "backend is running (ᗒᗨᗕ)/ (ᗒᗨᗕ)/ (ᗒᗨᗕ)/"}
 
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import HumanMessage, AIMessage, ChatMessage
+
+app = FastAPI()
+
 @app.post("/chat_stream")
 async def chat_stream_api(payload: dict):
     """Handle chat stream API."""
     question = payload["question"]
     conversation_data = payload["conversation"]
 
-    messages = [
-        {"role": "user" if item["sender"] == "user" else "assistant", "content": item["content"]}
-        for item in conversation_data
-    ]
-    messages.append({"role": "user", "content": question})
+    messages = []
+    for item in conversation_data:
+        if item["sender"] == "user":
+            messages.append(ChatMessage(content=item["content"], role=item["sender"]))
+        elif item["sender"] == "assistant":
+            messages.append(AIMessage(content=item["content"]))
+
+    messages.append(ChatMessage(content=question, role="user"))
 
     answer = ""
 
@@ -46,21 +55,22 @@ async def chat_stream_api(payload: dict):
         """Generate stream events."""
         nonlocal answer
         try:
+            # Stream conversation through the graph
             for chunk in graph.stream({"messages": messages}):
                 for key, value in chunk.items():
                     if isinstance(value, dict) and "messages" in value:
-                        messages = value["messages"]
-                        if messages and isinstance(messages[-1], AIMessage):
-                            answer = messages[-1].content
+                        conversation_messages = value["messages"]
+                        if conversation_messages and isinstance(conversation_messages[-1], AIMessage):
+                            answer = conversation_messages[-1].content
                             break
         except Exception as e:
-            yield f"Error: {str(e)}\n\n"
+            yield f'data: {{ "error": "{str(e)}" }}\n\n'
 
     async def final_response_generator(messages=None):
         """Generate final response."""
         async for chunk in event_generator(messages):
             yield chunk
-        yield f'{{"type": "final", "data": "{answer}"}}\n\n'
+        yield f'data: {{"type": "final", "data": "{answer}"}}\n\n'
 
     return StreamingResponse(final_response_generator(messages), media_type="text/event-stream")
 

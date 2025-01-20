@@ -222,7 +222,8 @@ if __name__ == '__main__':
     # user_messages = [("user", "how to change the e-commerce system to allow customers to earn loyalty points")]
     # user_messages = [("user", "What are the core, operate Frequent, Operating Temperature and application for the product M0A21EB1AC?")]
     # user_messages = [("user", "I am looking for a product where the minimum Operating Temperature must be greater than -50 degrees, and the APROM must be at least 32.")]
-    user_messages = [("user", "Please provide me 5 products which application is Automotive, and the chip is Cortex-M23, and how to add those products into our e-commerce website?")]
+    # user_messages = [("user", "Please provide me 5 products which application is Automotive, and the chip is Cortex-M23, and how to add those products into our e-commerce website?")]
+    user_messages = [("user", "123")]
     for chunk in graph.stream(
         {
             "messages": user_messages,
