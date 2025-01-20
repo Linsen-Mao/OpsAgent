@@ -2,8 +2,6 @@ import uvicorn
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage
 
 from application.backend.chatbot.chatbot import Chatbot
 from application.backend.chatbot.chatbot_supervisor import graph
