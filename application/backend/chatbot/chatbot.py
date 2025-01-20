@@ -1,3 +1,5 @@
+# chatbot.py (unchanged except that we don't rename "role" -> "sender" here
+# because we only do that in ecommerce_chat_tool or other places where we build a Conversation)
 import asyncio
 import os
 import json
@@ -14,57 +16,67 @@ from langchain.schema import StrOutputParser
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+
 class Chatbot:
     """Initialize the chatbot."""
     def __init__(self):
         self.chatvec = ChatbotVectorDatabase()
-        self.conversation_history = Conversation(conversation=[])
-        pass
+        # Always keep a valid Conversation instance
+        # self.conversation_history = Conversation(conversation=[])
 
-    """Generate responses using OpenAI and maintain conversation history."""
     def chat_stream(
-            self, question: str, conversation: Conversation):
+        self,
+        question: str,
+        # conversation: Conversation
+    ) -> str:
+        """
+        Generate a response using OpenAI and maintain conversation history.
+        """
         llm = ChatOpenAI(
             model="gpt-4o",
             temperature=0,
             openai_api_key=openai_api_key,
-            streaming= False
+            streaming=False
         )
 
-        history = conversation.get_history()
+        # Build the chain context
+        # history = conversation.get_history()
 
         docs_from_vdb = self.chatvec.search(
             query=question,
             top_k=3,
         )
 
+        # Collate retrieved docs into a context string
         context = ""
         for i, res in enumerate(docs_from_vdb):
             replaced_text = res['text'].replace('\n', ' ')
             context += f"Document Index: {i + 1}, {replaced_text}\n"
 
         conversational_qa_chain = (
-                {
-                    "context": lambda x: context,
-                    "question": RunnablePassthrough(),
-                    "chat_history": lambda x: history,
-                }
-                | ANSWER_PROMPT
-                | llm
-                | StrOutputParser()
+            {
+                "context": lambda x: context,
+                "question": RunnablePassthrough(),
+                # "chat_history": lambda x: history,
+            }
+            | ANSWER_PROMPT
+            | llm
+            | StrOutputParser()
         )
 
         answer = ""
-
+        # Because we used streaming=False above, the chain won't yield partial tokens;
+        # but if you want partial tokens, set streaming=True and handle them below.
         for chunk in conversational_qa_chain.stream(
-                {"question": question, "chat_history": history}
+            {"question": question}
         ):
             answer += chunk
 
         return answer
 
+
 async def main():
-    """Main function to test chatbot locally in terminal."""
+    """Example usage to test chatbot locally in terminal."""
     bot = Chatbot()
 
     print("Chatbot initialized. Type 'quit' to exit.")
@@ -75,17 +87,16 @@ async def main():
             print("Exiting chatbot. Goodbye!")
             break
 
-        print("Bot:", end=" ", flush=True)
-        async for r in bot.chat_stream(usr_input, bot.conversation_history):
-            try:
-                response_dict = json.loads(r)
-                if "data" in response_dict and "full_answer" in response_dict["data"]:
-                    print(response_dict["data"]["full_answer"])
-                    break
-                elif "data" in response_dict and "stream" in response_dict["data"]:
-                    print(response_dict["data"]["stream"], end="", flush=True)
-            except json.JSONDecodeError:
-                print("Error: Unable to parse response.")
+        # Add user's message to the conversation
+        bot.conversation_history.add_message(sender="user", content=usr_input)
+
+        # Get bot response
+        response = bot.chat_stream(usr_input, bot.conversation_history)
+        print("Bot:", response)
+
+        # Store the bot's answer as well
+        bot.conversation_history.add_message(sender="bot", content=response)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

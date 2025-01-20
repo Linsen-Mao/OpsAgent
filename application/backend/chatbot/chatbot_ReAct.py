@@ -97,7 +97,7 @@ def product_query_tool(state: Annotated[dict, InjectedState]) -> str:
     """Handle product query and selection."""
     question = get_latest_human_question(state)
     result = process_user_query(question)
-    return result;
+    return result
 
 commerce_tools = [
     ecommerce_chat_tool,
@@ -119,12 +119,12 @@ product_selection_agent = create_react_agent(
     model,
     product_tools,
     state_modifier=(
-        "You are a product query expert. Your main functions are: "
+        "You are a product query expert. Your only functions are: "
         "1. Answer specific parameters about a product. "
         "2. Recommend products based on user-provided parameters. If more than 5 products match, return the top 5 "
         "and suggest additional parameters for narrowing the search. These additional parameters must be derived "
         "from the database and relevant to the current product set. "
-        "If you need help with e-commerce queries, ask 'ecommerce_agent' for help. "
+        "If you need help with e-commerce queries, you must ask 'ecommerce_agent' for help. "
     ),
 )
 
@@ -155,17 +155,39 @@ general_agent = create_react_agent(
     general_tools,
     state_modifier=(
         "You are a general assistant for handling the first user query. "
-        "If you need product Specification, ask 'product_selection_agent' for help. "
-        "If you need help with e-commerce website maintenance, ask 'ecommerce_agent' for help. "
+        "If the query involves product specifications, call 'product_selection_agent'. "
+        "If the query involves e-commerce website maintenance, call 'ecommerce_agent'. "
+        "Do not call both tools at the same time. Handle one at a time and resolve it before invoking another tool."
     ),
 )
+
+def decide_tool_based_on_query(query: str) -> str:
+    if "product" in query.lower() or "specification" in query.lower():
+        return "transfer_to_product_selection_agent"
+    elif "e-commerce" in query.lower() or "website" in query.lower():
+        return "transfer_to_ecommerce_agent"
+    return None
 
 
 def call_general_agent(
     state: MessagesState,
 ) -> Command[Literal["product_selection_agent", "ecommerce_agent"]]:
     """Call the general agent."""
-    return general_agent.invoke(state)
+    question = get_latest_human_question(state)
+    tool_to_invoke = decide_tool_based_on_query(question)
+
+    if tool_to_invoke == "transfer_to_product_selection_agent":
+        return general_agent.invoke(
+            {**state, "messages": state["messages"]},
+        )
+    elif tool_to_invoke == "transfer_to_ecommerce_agent":
+        return general_agent.invoke(
+            {**state, "messages": state["messages"]},
+        )
+    else:
+        # Handle queries that do not map to a specific tool
+        return general_agent.invoke(state)
+
 
 builder = StateGraph(MessagesState)
 builder.add_node("general_agent", call_general_agent)
@@ -198,8 +220,9 @@ def pretty_print_messages(update):
 
 if __name__ == '__main__':
     # user_messages = [("user", "how to change the e-commerce system to allow customers to earn loyalty points")]
-    # user_messages = [("user", "What are the core, operate Frequent and Operating Temperature for the product M032LG8AE?")]
-    user_messages = [("user", "I am looking for a product where the minimum Operating Temperature must be greater than -50 degrees, and the APROM must be at least 32.")]
+    # user_messages = [("user", "What are the core, operate Frequent, Operating Temperature and application for the product M0A21EB1AC?")]
+    # user_messages = [("user", "I am looking for a product where the minimum Operating Temperature must be greater than -50 degrees, and the APROM must be at least 32.")]
+    user_messages = [("user", "Please provide me 5 products which application is Automotive, and the chip is Cortex-M23, and how to add those products into our e-commerce website?")]
     for chunk in graph.stream(
         {
             "messages": user_messages,

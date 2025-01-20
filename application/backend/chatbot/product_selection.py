@@ -101,7 +101,6 @@ def generate_sql_query(user_question, column_mapping, table_name):
         | StrOutputParser()
     )
     sql_query = sequence.invoke({"question": user_question})
-    print(f"Generated SQL Query: {sql_query}")  # Print the SQL query
     return sql_query
 
 def process_user_query(user_question):
@@ -123,11 +122,11 @@ def process_user_query(user_question):
     result = query_database(DB_PATH, sql_query)
     response = {
         "result": result,
-        "parameters": column_mapping[:60],
+        "parameters": column_mapping[:20],
     }
     return json.dumps(response, indent=2)
 
 if __name__ == '__main__':
-    user_question = "What are the core, operate Frequent and Operating Temperature for the product M032LG8AE?"
+    user_question = "What are the core, operate Frequent, Operating Temperature and application for the product M032LG8AE?"
     result = process_user_query(user_question)
     print(result) if result else print("No matching data found.")
