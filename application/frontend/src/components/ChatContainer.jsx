@@ -4,21 +4,19 @@ import ChatMessage from "./ChatMessage";
 import { fetchChatStream } from "../api/chatbotApi";
 
 const ChatContainer = () => {
-  const [messages, setMessages] = useState([]); 
+  const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
 
   // conversation：要傳給後端的上下文
-  const [conversation, setConversation] = useState([]); // 改成列表
+  const [conversation, setConversation] = useState([]);
 
   const messageEndRef = useRef(null);
 
   useEffect(() => {
-    // 自動捲到底
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 按下「送出」按鈕或按 Enter
   const handleSend = async () => {
     if (!userInput.trim()) return;
 
@@ -27,21 +25,21 @@ const ChatContainer = () => {
     // 1) 先把使用者輸入顯示到畫面
     const userMsg = { sender: "user", content: userInput };
     setMessages((prev) => [...prev, userMsg]);
-    setConversation((prevConv) => [...prevConv, userMsg]); // 直接操作列表
+    setConversation((prevConv) => [...prevConv, userMsg]);
     setUserInput("");
 
     try {
       // 2) 呼叫後端 SSE，準備讀取串流
       const reader = await fetchChatStream(
-        userInput, 
-        [...conversation, userMsg] // 傳遞列表
+        userInput,
+        [...conversation, userMsg]
       );
 
-      // 3) 畫面上加一個空訊息，逐字更新
-      let botMsg = { sender: "bot", content: "" };
+      // 3) 在畫面上先放一個空白 bot 訊息等待
+      let botMsg = { sender: "assistant", content: "" };
       setMessages((prev) => [...prev, botMsg]);
 
-      let partialAnswer = "";
+      let finalAnswer = ""; // 只會有一次 final
 
       while (true) {
         const { value, done } = await reader.read();
@@ -49,34 +47,41 @@ const ChatContainer = () => {
 
         // 讀 chunk
         const chunkValue = new TextDecoder("utf-8").decode(value);
-        const lines = chunkValue.split("\n\n").filter(Boolean);
+        // ★ 目前後端把 SSE 事件格式化為 "data: { ... }\n\n"
+        //   所以我們以 "\n" 為分隔，再檢查每一行是否以 "data: " 開頭
+        const lines = chunkValue.split("\n").filter(Boolean);
 
         for (const line of lines) {
-          try {
-            const parsed = JSON.parse(line);
+          if (line.startsWith("data:")) {
+            // ★ 去掉 "data: " 前綴
+            const jsonStr = line.replace(/^data:\s*/, "");
+            // console.log("DEBUG SSE line =>", jsonStr);
 
+            try {
+              const parsed = JSON.parse(jsonStr);
+              // console.log("DEBUG SSE parsed =>", parsed);
 
+              // ★ 新版後端只會在最後 yield {"type": "final", "data": "..."}
+              if (parsed.type === "final") {
+                finalAnswer = parsed.data;
+                updateLastBotMessage(finalAnswer);
+              }
+              else if (parsed.error) {
+                // 如果發生例外
+                updateLastBotMessage(`Error: ${parsed.error}`);
+              }
 
-
-
-
-            console.log("Parsed SSE message:", parsed); // 增加日誌
-            // 確保 'type' 是 'stream' + 'data' 是 string
-            if (parsed.type === "stream" && typeof parsed.data === "string") {
-              partialAnswer += parsed.data;
-              updateLastBotMessage(partialAnswer);
+            } catch (err) {
+              console.error("Failed to parse SSE line:", line, err);
             }
-          } catch (err) {
-            // chunk 還不完整或 JSON parse 失敗就先忽略
-            console.error("Failed to parse SSE line:", line, err);
           }
         }
       }
 
-      // 在 stream 結束後，更新 conversation
+      // 在 SSE 流結束後，更新 conversation
       const finalBotMsg = {
-        sender: "bot",
-        content: partialAnswer,
+        sender: "assistant",
+        content: finalAnswer,
       };
       setConversation((prevConv) => [...prevConv, finalBotMsg]);
 
@@ -91,22 +96,21 @@ const ChatContainer = () => {
   const updateLastBotMessage = (text) => {
     setMessages((prev) => {
       if (prev.length === 0) {
-        return [{ sender: "bot", content: text }];
+        return [{ sender: "assistant", content: text }];
       }
       const lastMsg = prev[prev.length - 1];
-      if (lastMsg.sender === "bot") {
+      if (lastMsg.sender === "assistant") {
         // 修改最後一筆
-        return [...prev.slice(0, -1), { sender: "bot", content: text }];
+        return [...prev.slice(0, -1), { sender: "assistant", content: text }];
       } else {
-        // 若最後一筆不是 bot，就補上一筆
-        return [...prev, { sender: "bot", content: text }];
+        // 若最後一筆不是 assistant，就補上一筆
+        return [...prev, { sender: "assistant", content: text }];
       }
     });
   };
 
-  // 按下 Enter 鍵時送出
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { // 防止在多行輸入時按 Enter 捲動
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
