@@ -112,7 +112,7 @@ product_selection_agent = create_react_agent(
         "2. Recommend products based on user-provided parameters. If more than 5 products match, return the top 5 "
         "and suggest additional parameters for narrowing the search. These additional parameters must be derived "
         "from the database and relevant to the current product set. "
-        "You must call product_query_tool to fetch product related information."
+        "You must always call product_query_tool to fetch product related information."
         "Respond with your findings or clarifications."
     ),
 )
@@ -148,22 +148,20 @@ supervisor_prompt = (
     "Rules:\n"
     "1) If you believe there's enough information to fulfill the user's request, "
     "   respond with 'FINISH' and empty instructions.\n"
-    "2) If you believe there's NOT enough user information, you may respond with 'FINISH' "
-    "   but put a clarifying question in 'instructions' (like 'We do not have enough info. "
-    "   Please ask user to clarify...').\n"
-    "3) Your output MUST be valid JSON with the schema:\n"
+    "2) If you believe there's NOT enough user information, you can respond with 'FINISH' "
+    "   but put a clarifying question in 'instructions'.\n"
+    "3) If you need information about e-commerce content, you can route to 'ecommerce_agent'.\n"
+    "   If you need information about product query, you can route to 'product_selection_agent'.\n"
+    "4) Your output MUST be valid JSON with the schema:\n"
+    "Output Requirements:\n"
     "{\n"
-    '  "next": "product_selection_agent" | "ecommerce_agent" | "FINISH",\n'
-    '  "instructions": "some text",\n'
-    '  "reason": "short explanation of why you chose that agent or FINISH"\n'
-    "}\n"
-    "4) If you still need information about e-commerce content, you MUST route to 'ecommerce_agent'.\n"
-    "   If you still need information about product query, you MUST route to 'product_selection_agent'.\n"
+    '  "next": "agent_name/FINISH",\n'
+    '  "instructions": "concrete task description",\n'
+    '  "reason": "technical justification"\n'
+    "}\n\n"
 )
 
-#
-# 3) Provide a small 'final_prompt' that merges all data for the final answer
-#
+
 final_prompt = (
     "You are the supervisor, responsible for generating the final answer to the user. "
     "You are part of a Knowledge-Integrated Chatbot designed to provide expert guidance and support for managing an e-commerce platform built on Prestashop.\n"
@@ -216,12 +214,7 @@ def produce_final_answer(all_messages: list[AnyMessage], llm: ChatOpenAI) -> str
     return result.content
 
 
-#
-# 5) Modify supervisor_node:
-#    - Parse "reason" from the LLM
-#    - If LLM picks FINISH => produce final answer or ask user for clarification
-#    - If LLM tries to re-call the same agent & instructions => end
-#
+
 def supervisor_node(state: SupervisorState) -> Command[
     Literal["product_selection_agent", "ecommerce_agent", "__end__"]
 ]:
@@ -250,49 +243,13 @@ def supervisor_node(state: SupervisorState) -> Command[
 
     next_agent = llm_output["next"]
     instructions = llm_output["instructions"]
-    reason = llm_output["reason"]
-
-
-    # If the LLM tries to pick the same agent again with no new instructions => finish
-    # or if instructions is empty and next_agent is the same => finish
-    if not instructions.strip() and next_agent == state.get("next", ""):
-        finish_msg = AIMessage(
-            content="Supervisor: repeated agent call with empty instructions. Finishing.",
-            name="supervisor"
-
-        )
-        return Command(goto=END, update={"messages": state["messages"] + [finish_msg]})
-
-    # If next_agent is the same as last time but instructions are the same => finish
-    # (Even if instructions is non-empty, this suggests a loop.)
-    if next_agent == state.get("next", "") and instructions == state.get("instructions", ""):
-        finish_msg = AIMessage(
-            content=f"Supervisor: repeated agent call. Reason from LLM was '{reason}'. Finishing.",
-            name="supervisor"
-        )
-        return Command(goto=END, update={"messages": state["messages"] + [finish_msg]})
 
     if next_agent == "FINISH":
-        # If instructions is empty => we produce the final consolidated answer
-        if not instructions.strip():
             final_answer = produce_final_answer(state["messages"], supervisor_model)
             finish_msg = AIMessage(content=final_answer, name="supervisor")
             return Command(
                 goto=END,
                 update={"messages": state["messages"] + [finish_msg]}
-            )
-        else:
-            # We have instructions => that means the LLM wants user clarifications
-            clarif_msg = AIMessage(
-                content=(
-                    f"Supervisor: Not enough info to finalize. LLM reason: '{reason}'.\n"
-                    f"Suggestions: {instructions}"
-                ),
-                name="supervisor"
-            )
-            return Command(
-                goto=END,
-                update={"messages": state["messages"] + [clarif_msg]}
             )
 
     # Otherwise, we route to the chosen agent
