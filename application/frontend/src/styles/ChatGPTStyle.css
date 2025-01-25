@@ -1,150 +1,356 @@
 /* ChatGPTStyle.css */
-
-/* 
-  Global font fallback:
-  - Use "Inter" for English
-  - Use "Noto Sans TC" for Traditional Chinese
-  - Fallback to system fonts if needed
-*/
 * {
-    font-family: 
-      "Inter", 
-      "Noto Sans TC",
-      -apple-system, 
-      BlinkMacSystemFont, 
-      "Segoe UI", 
-      "Helvetica Neue", 
-      "Microsoft JhengHei",
-      "PingFang TC", 
-      Arial, 
-      sans-serif;
+  font-family:
+    "Inter",
+    "Noto Sans TC",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    "Microsoft JhengHei",
+    "PingFang TC",
+    Arial,
+    sans-serif;
+  box-sizing: border-box;
+}
+
+/* 整体布局 */
+.home-container {
+  display: flex;
+  height: 100vh;
+  background-color: #343541;
+  color: #ececec;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #202123;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #444654;
+}
+
+/* 消息区域 */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  scroll-behavior: smooth;
+}
+
+.chat-message {
+  margin: 12px 0;
+  display: flex;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.chat-message.bot {
+  justify-content: flex-start;
+}
+
+.chat-message.user {
+  justify-content: flex-end;
+}
+
+/* 消息气泡 */
+.chat-bubble {
+  display: flex;
+  max-width: 75%;
+  align-items: flex-start;
+}
+
+/* 头像样式 */
+.avatar {
+  margin-right: 12px;
+  margin-top: 4px;
+}
+
+.icon-style {
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  transition: all 0.3s ease;
+}
+
+.user-avatar .icon-style {
+  animation: icon-float 2s ease-in-out infinite;
+}
+
+@keyframes icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.chat-message.bot .icon-style:hover {
+  transform: rotate(15deg);
+  filter: drop-shadow(0 0 4px rgba(147, 51, 234, 0.5));
+}
+
+/* 消息内容容器 */
+.message-container {
+  flex: 1;
+  position: relative;
+  transition: all 0.3s ease;
+}
+/* ChatGPTStyle.css */
+/* 流式消息样式 */
+.streaming-message {
+  background-color: #3a3b45;
+  border: 1px solid #4d4f5e;
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  opacity: 0.9;
+}
+
+.stream-content {
+  color: #a0a0a0;
+  line-height: 1.6;
+}
+
+.typing-cursor {
+  animation: blink 1s infinite;
+  color: #fff;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+/* 最终消息样式 */
+.chat-message.bot .message-container {
+  background-color: #444654;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+/* 错误消息样式 */
+.error-message {
+  color: #ff6b6b;
+  background-color: #3a2d2d;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ff6b6b55;
+}
+
+/* 其他保持原有样式不变 */
+
+.error-icon {
+  margin-right: 8px;
+}
+
+/* Markdown内容样式 */
+.react-markdown {
+  line-height: 1.6;
+}
+
+.message-content p {
+  margin: 0.4em 0;
+  line-height: 1.5;
+}
+
+.message-content h1,
+.message-content h2,
+.message-content h3 {
+  margin: 0.8em 0 0.4em;
+  line-height: 1.3;
+}
+
+.message-content ul,
+.message-content ol {
+  padding-left: 1.8em;
+  margin: 0.6em 0;
+}
+
+.message-content li {
+  margin: 0.3em 0;
+  line-height: 1.4;
+}
+
+/* 代码块样式 */
+.code-block {
+  margin: 12px 0;
+  position: relative;
+}
+
+.language-tag {
+  position: absolute;
+  right: 8px;
+  top: 4px;
+  font-size: 0.8em;
+  color: #888;
+}
+
+pre {
+  padding: 1rem !important;
+  border-radius: 8px;
+  background-color: #2d2d2d !important;
+  overflow-x: auto;
+}
+
+.inline-code {
+  padding: 2px 4px;
+  background-color: #2d2d2d;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* 表格样式 */
+table {
+  margin: 1em 0;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  padding: 8px 12px !important;
+  border: 1px solid #555;
+}
+
+/* 引用块样式 */
+blockquote {
+  margin: 0.8em 0;
+  padding: 0.8em 1.2em;
+  border-left: 4px solid #666;
+  background-color: #3a3a3a;
+  color: #ccc;
+}
+
+/* 输入区域 */
+.chat-input-area {
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  background-color: #40414f;
+  border-top: 1px solid #565869;
+}
+
+.chat-input-area textarea {
+  flex: 1;
+  resize: none;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 8px;
+  border: 1px solid #565869;
+  background-color: #333;
+  color: #fff;
+  min-height: 44px;
+  max-height: 200px;
+  transition: all 0.2s ease;
+}
+
+.chat-input-area textarea:focus {
+  outline: none;
+  border-color: #0065BD;
+  box-shadow: 0 0 0 2px rgba(0, 101, 189, 0.2);
+}
+
+.chat-input-area button {
+  background-color: #0065BD;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 20px;
+  cursor: pointer;
+  font-weight: 500;
+  height: 44px;
+  transition: all 0.2s ease;
+}
+
+.chat-input-area button:hover {
+  background-color: #005296;
+}
+
+.chat-input-area button:disabled {
+  background-color: #565869;
+  cursor: not-allowed;
+}
+
+/* 时间戳样式 */
+.message-timestamp {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 8px;
+  text-align: right;
+}
+
+/* 侧边栏按钮 */
+.new-chat-button {
+  background-color: #565869;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 20px;
+  color: #fff;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.new-chat-button:hover {
+  background-color: #6f717f;
+}
+
+.sidebar-footer {
+  font-size: 14px;
+  color: #aaa;
+  padding-top: 16px;
+  border-top: 1px solid #333;
+}
+
+/* 动画效果 */
+@keyframes dot-flashing {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
-  
-  /* Main page container */
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
   .home-container {
-    display: flex;
-    height: 100vh;
-    background-color: #343541; /* Dark gray background */
-    color: #ececec;
+    flex-direction: column;
   }
-  
-  /* Sidebar */
+
   .sidebar {
-    width: 250px;
-    background-color: #202123;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 16px;
-  }
-  
-  .new-chat-button {
-    background-color: #565869;
-    border: none;
-    border-radius: 4px;
-    padding: 12px;
-    margin-bottom: 20px;
-    color: #fff;
-    cursor: pointer;
     width: 100%;
+    height: 60px;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 16px;
   }
-  
-  .new-chat-button:hover {
-    background-color: #6f717f;
+
+  .new-chat-button {
+    margin-bottom: 0;
+    width: auto;
   }
-  
-  .sidebar-footer {
-    font-size: 14px;
-    color: #aaa;
-  }
-  
-  /* Chat main container */
-  .chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: #444654; /* ChatGPT-like background */
-  }
-  
-  /* Message list area */
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-  }
-  
-  /* Single chat message */
-  .chat-message {
-    margin: 8px 0;
-    display: flex;
-  }
-  
-  /* Bot on the left, User on the right */
-  .chat-message.bot {
-    justify-content: flex-start;
-  }
-  
-  .chat-message.user {
-    justify-content: flex-end;
-  }
-  
-  /* Chat bubble layout */
+
   .chat-bubble {
-    display: flex;
-    max-width: 60%;
-    align-items: flex-start;
+    max-width: 90%;
   }
-  
-  /* Avatar */
+
   .avatar {
     margin-right: 8px;
-    font-size: 24px;
   }
-  
-  .user-avatar {
-    /* Could add margin-left if needed */
-  }
-  
-  .message-content {
-    background-color: #555660;
-    border-radius: 8px;
-    padding: 10px 12px;
-    white-space: pre-wrap; /* Preserve line breaks */
-    line-height: 1.4;
-  }
-  
-  /* Input area */
-  .chat-input-area {
-    padding: 16px;
-    display: flex;
-    gap: 8px;
-    background-color: #40414f;
-    border-top: 1px solid #565869;
-  }
-  
-  .chat-input-area textarea {
-    flex: 1;
-    resize: none;
-    padding: 8px;
-    font-size: 14px;
-    border-radius: 4px;
-    border: 1px solid #565869;
-    background-color: #333;
-    color: #fff;
-  }
-  
-  .chat-input-area button {
-    background-color: #0065BD; /* TUM Blue */
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    padding: 0 16px;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  
-  /* Slight darkening on hover */
-  .chat-input-area button:hover {
-    background-color: #005296; /* Darker TUM Blue */
-  }
-  
+}

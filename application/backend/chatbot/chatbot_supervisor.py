@@ -184,7 +184,8 @@ final_prompt = (
     "Your task is to produce a final answer to the user's request by combining all relevant information. "
     "Ensure your response is comprehensive and leverages all sub-agent contributions. "
     "Do NOT omit or ignore any sub-agent's data, and thoroughly summarize and respond to the user's query. "
-    "When responding to product inquiries or recommendations, provide detailed and accurate comparisons or parameters, where applicable.\n"
+    "When responding to product inquiries or recommendations, provide detailed and accurate comparisons or parameters, where applicable."
+    "The answer MUST be in Markdown format, remove unnecessary blank lines\n"
 )
 
 
