@@ -1,5 +1,5 @@
-// src/components/ChatContainer.jsx
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { v4 as uuidv4 } from "uuid";
 import ChatMessage from "./ChatMessage";
 import { fetchChatStream } from "../api/chatbotApi";
 
@@ -7,106 +7,155 @@ const ChatContainer = () => {
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // conversation：要傳給後端的上下文
   const [conversation, setConversation] = useState([]);
-
   const messageEndRef = useRef(null);
+
+  const typingTimeoutRef = useRef(null);
+
+  const TYPING_SPEED = 5;
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!userInput.trim()) return;
+  useEffect(() => {
+    // 组件卸载时清理定时器
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
+  /**
+   * 发送消息
+   */
+  const handleSend = async () => {
+    if (!userInput.trim() || loading) return;
     setLoading(true);
 
-    // 1) 先把使用者輸入顯示到畫面
-    const userMsg = { sender: "user", content: userInput };
+    const userMsg = {
+      sender: "user",
+      content: userInput,
+      id: uuidv4(),
+      timestamp: Date.now()
+    };
     setMessages((prev) => [...prev, userMsg]);
-    setConversation((prevConv) => [...prevConv, userMsg]);
-    setUserInput("");
+
+    const thinkingId = uuidv4();
+    setMessages((prev) => [
+      ...prev,
+      {
+        sender: "bot",
+        content: "Thinking ",
+        id: thinkingId,
+        status: "thinking",
+        timestamp: Date.now()
+      }
+    ]);
 
     try {
-      // 2) 呼叫後端 SSE，準備讀取串流
-      const reader = await fetchChatStream(
-        userInput,
-        [...conversation, userMsg]
-      );
+      const currentConversation = [...conversation, { sender: "user", content: userInput }];
+      setUserInput("");
 
-      // 3) 在畫面上先放一個空白 bot 訊息等待
-      let botMsg = { sender: "assistant", content: "" };
-      setMessages((prev) => [...prev, botMsg]);
+      const reader = await fetchChatStream(userInput, currentConversation);
+      let buffer = "";
+      const processChunk = async () => {
+        const { done, value } = await reader.read();
+        if (done) return;
 
-      let finalAnswer = ""; // 只會有一次 final
+        buffer += new TextDecoder("utf-8").decode(value);
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+        for (const event of events) {
+          const dataLine = event.split("\n").find((line) => line.startsWith("data: "));
+          if (!dataLine) continue;
 
-        // 讀 chunk
-        const chunkValue = new TextDecoder("utf-8").decode(value);
-        // ★ 目前後端把 SSE 事件格式化為 "data: { ... }\n\n"
-        //   所以我們以 "\n" 為分隔，再檢查每一行是否以 "data: " 開頭
-        const lines = chunkValue.split("\n").filter(Boolean);
+          try {
+            const parsed = JSON.parse(dataLine.slice(6));
 
-        for (const line of lines) {
-          if (line.startsWith("data:")) {
-            // ★ 去掉 "data: " 前綴
-            const jsonStr = line.replace(/^data:\s*/, "");
-            // console.log("DEBUG SSE line =>", jsonStr);
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              // console.log("DEBUG SSE parsed =>", parsed);
-
-              // ★ 新版後端只會在最後 yield {"type": "final", "data": "..."}
-              if (parsed.type === "final") {
-                finalAnswer = parsed.data;
-                updateLastBotMessage(finalAnswer);
-              }
-              else if (parsed.error) {
-                // 如果發生例外
-                updateLastBotMessage(`Error: ${parsed.error}`);
-              }
-
-            } catch (err) {
-              console.error("Failed to parse SSE line:", line, err);
+            if (parsed.type === "stream") {
+              // 忽略中间 stream，不做任何处理
             }
+
+            if (parsed.type === "final") {
+              // 收到最终结果 -> 逐字打印
+              const finalContent = parsed.data;
+
+              // 移除「Thinking...」占位
+              setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+
+              // 新建一个空消息来逐字打印
+              const finalMsgId = uuidv4();
+              setMessages((prev) => [
+                ...prev,
+                {
+                  sender: "bot",
+                  content: "",
+                  id: finalMsgId,
+                  status: "typing", // 用于打字机动画
+                  timestamp: Date.now()
+                }
+              ]);
+
+              // 启动打字机
+              typeOutFinalAnswer(finalContent, finalMsgId);
+
+              // 更新会话
+              setConversation((prev) => [...prev, { sender: "bot", content: finalContent }]);
+            }
+          } catch (err) {
+            console.error("Parse error:", err);
           }
         }
-      }
-
-      // 在 SSE 流結束後，更新 conversation
-      const finalBotMsg = {
-        sender: "assistant",
-        content: finalAnswer,
+        processChunk();
       };
-      setConversation((prevConv) => [...prevConv, finalBotMsg]);
-
+      processChunk();
     } catch (error) {
-      console.error("Error while fetching SSE:", error);
+      console.error("SSE Error:", error);
+      setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+
+      const errId = uuidv4();
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          content: "Error: Failed to get response",
+          id: errId,
+          status: "error",
+          timestamp: Date.now()
+        }
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  // 更新最後一則 bot 訊息的 content
-  const updateLastBotMessage = (text) => {
-    setMessages((prev) => {
-      if (prev.length === 0) {
-        return [{ sender: "assistant", content: text }];
-      }
-      const lastMsg = prev[prev.length - 1];
-      if (lastMsg.sender === "assistant") {
-        // 修改最後一筆
-        return [...prev.slice(0, -1), { sender: "assistant", content: text }];
+  const typeOutFinalAnswer = (fullText, messageId) => {
+    let index = 0;
+
+    const typeChar = () => {
+      if (index < fullText.length) {
+        const currentText = fullText.slice(0, index + 1);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, content: currentText } : m
+          )
+        );
+        index++;
+        typingTimeoutRef.current = setTimeout(typeChar, TYPING_SPEED);
       } else {
-        // 若最後一筆不是 assistant，就補上一筆
-        return [...prev, { sender: "assistant", content: text }];
+        // 打字完毕，状态改为 final
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, status: "final" } : m
+          )
+        );
       }
-    });
+    };
+
+    typeChar();
   };
 
   const handleKeyDown = (e) => {
@@ -119,8 +168,14 @@ const ChatContainer = () => {
   return (
     <div className="chat-container">
       <div className="chat-messages">
-        {messages.map((m, idx) => (
-          <ChatMessage key={idx} sender={m.sender} content={m.content} />
+        {messages.map((m) => (
+          <ChatMessage
+            key={m.id}
+            sender={m.sender}
+            content={m.content}
+            status={m.status}
+            timestamp={m.timestamp}
+          />
         ))}
         <div ref={messageEndRef} />
       </div>

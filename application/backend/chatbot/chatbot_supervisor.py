@@ -151,16 +151,14 @@ supervisor_prompt = (
     "2) If you believe there's NOT enough user information, you may respond with 'FINISH' "
     "   but put a clarifying question in 'instructions' (like 'We do not have enough info. "
     "   Please ask user to clarify...').\n"
-    "3) If you want to route the conversation to a sub-agent, set 'next' to either "
-    "'product_selection_agent' or 'ecommerce_agent' and put the instructions in 'instructions'.\n"
-    "4) Do NOT repeatedly call the same agent for the same instructions. If there is no new request, "
-    "   respond with FINISH.\n\n"
-    "Your output MUST be valid JSON with the schema:\n"
+    "3) Your output MUST be valid JSON with the schema:\n"
     "{\n"
     '  "next": "product_selection_agent" | "ecommerce_agent" | "FINISH",\n'
     '  "instructions": "some text",\n'
     '  "reason": "short explanation of why you chose that agent or FINISH"\n'
     "}\n"
+    "4) If you still need information about e-commerce content, you MUST route to 'ecommerce_agent'.\n"
+    "   If you still need information about product query, you MUST route to 'product_selection_agent'.\n"
 )
 
 #
@@ -184,7 +182,8 @@ final_prompt = (
     "Your task is to produce a final answer to the user's request by combining all relevant information. "
     "Ensure your response is comprehensive and leverages all sub-agent contributions. "
     "Do NOT omit or ignore any sub-agent's data, and thoroughly summarize and respond to the user's query. "
-    "When responding to product inquiries or recommendations, provide detailed and accurate comparisons or parameters, where applicable.\n"
+    "When responding to product inquiries or recommendations, provide detailed and accurate comparisons or parameters, where applicable."
+    "The answer MUST be in Markdown format, remove unnecessary blank lines\n"
 )
 
 
@@ -320,6 +319,7 @@ def product_selection_node(state: SupervisorState) -> Command[Literal["superviso
     """
     # The last message is the Supervisor’s instruction: state["messages"][-1]
     # We'll make a new minimal state for the sub-agent.
+
     last_instruction = state["messages"][-1]  # e.g. HumanMessage(...) from 'supervisor_instructions'
 
     sub_state = {
