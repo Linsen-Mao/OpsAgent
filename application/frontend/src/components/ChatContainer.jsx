@@ -1,6 +1,5 @@
-// ChatContainer.jsx
 import { useState, useEffect, useRef } from "react";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import ChatMessage from "./ChatMessage";
 import { fetchChatStream } from "../api/chatbotApi";
 
@@ -11,130 +10,100 @@ const ChatContainer = () => {
   const [conversation, setConversation] = useState([]);
   const messageEndRef = useRef(null);
 
-  // 流式处理相关ref
-  const streamQueue = useRef([]);
-  const isTyping = useRef(false);
-  const currentTyping = useRef(null);
-  const streamBuffer = useRef("");
-  const activeStreamId = useRef(null);
-  const TYPING_SPEED = 20; // 20ms/字符
+  const typingTimeoutRef = useRef(null);
+
+  const TYPING_SPEED = 5;
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
+    // 组件卸载时清理定时器
     return () => {
-      // 清理定时器
-      if (currentTyping.current) {
-        clearTimeout(currentTyping.current);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
   }, []);
 
-  const processStreamQueue = async () => {
-    if (isTyping.current || streamQueue.current.length === 0) return;
-
-    isTyping.current = true;
-    const { content } = streamQueue.current[0];
-    let index = 0;
-
-    const typeNextChar = () => {
-      if (index < content.length) {
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === activeStreamId.current
-              ? { ...msg, content: content.slice(0, index + 1) + '▌' }
-              : msg
-          )
-        );
-        index++;
-        currentTyping.current = setTimeout(typeNextChar, TYPING_SPEED);
-      } else {
-        // 完成当前内容输入
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === activeStreamId.current
-              ? { ...msg, content: content }
-              : msg
-          )
-        );
-        streamQueue.current.shift();
-        isTyping.current = false;
-        processStreamQueue();
-      }
-    };
-
-    typeNextChar();
-  };
-
+  /**
+   * 发送消息
+   */
   const handleSend = async () => {
     if (!userInput.trim() || loading) return;
-
     setLoading(true);
+
     const userMsg = {
       sender: "user",
       content: userInput,
       id: uuidv4(),
       timestamp: Date.now()
     };
+    setMessages((prev) => [...prev, userMsg]);
 
-    setMessages(prev => [...prev, userMsg]);
-    setUserInput("");
+    const thinkingId = uuidv4();
+    setMessages((prev) => [
+      ...prev,
+      {
+        sender: "bot",
+        content: "Thinking ",
+        id: thinkingId,
+        status: "thinking",
+        timestamp: Date.now()
+      }
+    ]);
 
     try {
-      const tempMessageId = uuidv4();
-      streamBuffer.current = "";
-      activeStreamId.current = tempMessageId;
-      streamQueue.current = [];
-
-      // 初始化流式消息
-      setMessages(prev => [
-        ...prev,
-        {
-          sender: "bot",
-          content: "",
-          id: tempMessageId,
-          status: "streaming",
-          timestamp: Date.now()
-        }
-      ]);
-
       const currentConversation = [...conversation, { sender: "user", content: userInput }];
-      const reader = await fetchChatStream(userInput, currentConversation);
+      setUserInput("");
 
-      let buffer = '';
+      const reader = await fetchChatStream(userInput, currentConversation);
+      let buffer = "";
       const processChunk = async () => {
         const { done, value } = await reader.read();
         if (done) return;
 
         buffer += new TextDecoder("utf-8").decode(value);
-        const events = buffer.split('\n\n');
-        buffer = events.pop() || '';
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
 
         for (const event of events) {
-          const data = event.split('\n').find(line => line.startsWith('data: '));
-          if (!data) continue;
+          const dataLine = event.split("\n").find((line) => line.startsWith("data: "));
+          if (!dataLine) continue;
 
           try {
-            const parsed = JSON.parse(data.slice(6));
+            const parsed = JSON.parse(dataLine.slice(6));
+
             if (parsed.type === "stream") {
-              streamBuffer.current += parsed.data;
-              streamQueue.current.push({
-                content: streamBuffer.current
-              });
-              processStreamQueue();
+              // 忽略中间 stream，不做任何处理
             }
 
             if (parsed.type === "final") {
-              // 等待所有输入完成
-              while (isTyping.current) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-              }
+              // 收到最终结果 -> 逐字打印
+              const finalContent = parsed.data;
 
-              // 确保使用最终内容
-              const finalContent = streamBuffer.current;
-              replaceWithFinalMessage(tempMessageId, finalContent);
+              // 移除「Thinking...」占位
+              setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+
+              // 新建一个空消息来逐字打印
+              const finalMsgId = uuidv4();
+              setMessages((prev) => [
+                ...prev,
+                {
+                  sender: "bot",
+                  content: "",
+                  id: finalMsgId,
+                  status: "typing", // 用于打字机动画
+                  timestamp: Date.now()
+                }
+              ]);
+
+              // 启动打字机
+              typeOutFinalAnswer(finalContent, finalMsgId);
+
+              // 更新会话
+              setConversation((prev) => [...prev, { sender: "bot", content: finalContent }]);
             }
           } catch (err) {
             console.error("Parse error:", err);
@@ -142,35 +111,51 @@ const ChatContainer = () => {
         }
         processChunk();
       };
-
       processChunk();
-
     } catch (error) {
       console.error("SSE Error:", error);
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === activeStreamId.current
-            ? { ...msg, content: "Error: Failed to get response", status: "error" }
-            : msg
-        )
-      );
+      setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
+
+      const errId = uuidv4();
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          content: "Error: Failed to get response",
+          id: errId,
+          status: "error",
+          timestamp: Date.now()
+        }
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const replaceWithFinalMessage = (tempId, finalContent) => {
-    setMessages(prev => [
-      ...prev.filter(msg => msg.id !== tempId),
-      {
-        sender: "bot",
-        content: finalContent,
-        id: uuidv4(),
-        status: "final",
-        timestamp: Date.now()
+  const typeOutFinalAnswer = (fullText, messageId) => {
+    let index = 0;
+
+    const typeChar = () => {
+      if (index < fullText.length) {
+        const currentText = fullText.slice(0, index + 1);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, content: currentText } : m
+          )
+        );
+        index++;
+        typingTimeoutRef.current = setTimeout(typeChar, TYPING_SPEED);
+      } else {
+        // 打字完毕，状态改为 final
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, status: "final" } : m
+          )
+        );
       }
-    ]);
-    setConversation(prev => [...prev, { sender: "bot", content: finalContent }]);
+    };
+
+    typeChar();
   };
 
   const handleKeyDown = (e) => {

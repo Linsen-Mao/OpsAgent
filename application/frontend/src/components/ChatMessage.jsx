@@ -1,79 +1,117 @@
-// ChatMessage.jsx
 import React from "react";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import { UserCircleIcon, CpuChipIcon } from '@heroicons/react/24/solid';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import { UserCircleIcon, CpuChipIcon } from "@heroicons/react/24/solid";
 
 const ChatMessage = ({ sender, content, status, timestamp }) => {
-  const renderContent = () => {
-    switch (status) {
-      case 'thinking':
-        return (
-          <div className="thinking-message">
+  if (status === "thinking") {
+    return (
+      <div className={`chat-message ${sender} thinking`}>
+        <div className="chat-bubble">
+          <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
+            {sender === "user" ? (
+              <UserCircleIcon className="icon-style text-blue-400" />
+            ) : (
+              <CpuChipIcon className="icon-style text-purple-400" />
+            )}
+          </div>
+          <div className="message-container">
             <div className="thinking-text">
-              Thinking
+              {content}
               <span className="dot-flashing"></span>
             </div>
-            <div className="stream-content">
-              {content}
-              <span className="typing-cursor"></span>
+            <div className="message-timestamp">
+              {new Date(timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+              })}
             </div>
           </div>
-        );
+        </div>
+      </div>
+    );
+  }
 
-      case 'final':
-        return (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
-            components={{
-              code({ inline, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                return !inline && match ? (
-                  <div className="code-block">
-                    <span className="language-tag">{match[1]}</span>
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  </div>
-                ) : (
-                  <code className={`inline-code ${className}`} {...props}>
-                    {children}
-                  </code>
-                );
-              }
-            }}
-          >
-            {content}
-          </ReactMarkdown>
-        );
+  // error 状态
+  if (status === "error") {
+    return (
+      <div className={`chat-message ${sender} error`}>
+        <div className="chat-bubble">
+          <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
+            {sender === "user" ? (
+              <UserCircleIcon className="icon-style text-blue-400" />
+            ) : (
+              <CpuChipIcon className="icon-style text-purple-400" />
+            )}
+          </div>
+          <div className="message-container">
+            <div className="error-message">⚠️ {content}</div>
+            <div className="message-timestamp">
+              {new Date(timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-      case 'error':
-        return <div className="error-message">⚠️ {content}</div>;
-
-      default:
-        return content;
-    }
-  };
+  if (status === "typing") {
+    return (
+      <div className={`chat-message ${sender} typing`}>
+        <div className="chat-bubble">
+          <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
+            {sender === "user" ? (
+              <UserCircleIcon className="icon-style text-blue-400" />
+            ) : (
+              <CpuChipIcon className="icon-style text-purple-400" />
+            )}
+          </div>
+          <div className="message-container">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+            >
+              {content}
+            </ReactMarkdown>
+            {/* 在末尾加一个闪烁光标 */}
+            <span className="typing-cursor">▌</span>
+            <div className="message-timestamp">
+              {new Date(timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`chat-message ${sender} ${status}`}>
       <div className="chat-bubble">
-        <div className={`avatar ${sender === 'user' ? 'user-avatar' : ''}`}>
-          {sender === 'user' ? (
+        <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
+          {sender === "user" ? (
             <UserCircleIcon className="icon-style text-blue-400" />
           ) : (
             <CpuChipIcon className="icon-style text-purple-400" />
           )}
         </div>
-
         <div className="message-container">
-          {renderContent()}
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeHighlight]}
+          >
+            {content}
+          </ReactMarkdown>
           <div className="message-timestamp">
             {new Date(timestamp).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit'
+              hour: "2-digit",
+              minute: "2-digit"
             })}
           </div>
         </div>
