@@ -8,25 +8,30 @@ from langchain_core.messages import AIMessage, ChatMessage
 from application.backend.chatbot.chatbot import Chatbot
 from application.backend.chatbot.chatbot_supervisor import graph
 
-
 load_dotenv(find_dotenv())
 
 app = FastAPI()
 
+# Configure CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all methods (including OPTIONS)
+    allow_headers=["*"],  # Allow all headers
 )
 
 bot = Chatbot()
 
 @app.get("/")
 def read_root():
-    """Root endpoint."""
     return {"message": "backend is running (ᗒᗨᗕ)/ (ᗒᗨᗕ)/ (ᗒᗨᗕ)/"}
+
+# Add explicit OPTIONS handler for /chat_stream
+@app.options("/chat_stream")
+async def options_chat_stream():
+    """Handle OPTIONS requests for CORS preflight"""
+    return {"message": "OK"}
 
 @app.post("/chat_stream")
 async def chat_stream_api(payload: dict):
@@ -46,10 +51,8 @@ async def chat_stream_api(payload: dict):
     answer = ""
 
     async def event_generator(messages=None):
-        """Generate stream events."""
         nonlocal answer
         try:
-            # Stream conversation through the graph
             for chunk in graph.stream({"messages": messages}):
                 for key, value in chunk.items():
                     if isinstance(value, dict) and "messages" in value:
@@ -61,7 +64,6 @@ async def chat_stream_api(payload: dict):
             yield f'data: {{ "error": "{str(e)}" }}\n\n'
 
     async def final_response_generator(messages=None):
-        """Generate final response."""
         async for chunk in event_generator(messages):
             yield chunk
         yield f'data: {{"type": "final", "data": "{answer}"}}\n\n'
