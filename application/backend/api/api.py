@@ -2,6 +2,8 @@ import uvicorn
 from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessage, ChatMessage
 
 from application.backend.chatbot.chatbot import Chatbot
 from application.backend.chatbot.chatbot_supervisor import graph
@@ -25,12 +27,6 @@ bot = Chatbot()
 def read_root():
     """Root endpoint."""
     return {"message": "backend is running (ᗒᗨᗕ)/ (ᗒᗨᗕ)/ (ᗒᗨᗕ)/"}
-
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from langchain_core.messages import HumanMessage, AIMessage, ChatMessage
-
-app = FastAPI()
 
 @app.post("/chat_stream")
 async def chat_stream_api(payload: dict):
