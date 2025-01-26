@@ -1,5 +1,7 @@
 import json
 import os
+import re
+
 import pandas as pd
 import sqlite3
 from dotenv import load_dotenv
@@ -73,19 +75,44 @@ def generate_sql_query(user_question, column_mapping, table_name):
     prompt = PromptTemplate(
         input_variables=["question", "columns", "table_name"],
         template=(
-            "You are a helpful assistant. Generate a valid SQL query based on the user's question.\n"
-            "Question: {question}\n"
-            "Available columns: {columns}\n"
-            "Table name: {table_name}\n"
-            "Ensure the query is executable in SQLite and does not include any markdown format.\n"
-            "If the user doesn't specify the number of rows to return, return the top 5 rows.\n"
-            "If the user asks for more than 10 rows, return only the first 10 rows.\n"
-            "Only return the columns that are relevant to the user's question.\n"
-            "Return only the SQL query."
+            "Act as a professional SQL assistant. Generate valid and efficient SQLite queries based on user requirements.\n"
+                "Given parameters:\n"
+                "- Table: {table_name}\n"
+                "- Available columns: {columns}\n"
+                "- User question: {question}\n\n"
+
+        "Generation rules:\n"
+        "1. 【Fuzzy Matching Priority】For text-based searches (names, descriptions):\n"
+        "   - Use LIKE with % wildcards for pattern matching\n"
+        "   - Consider common spelling variants and multilingual terms\n\n"
+
+        "2. 【Intelligent Fallback】Return top 5 products when:\n"
+        "   - Uncertain about exact filter criteria\n"
+        "   - Ambiguous user description\n"
+        "   - Multiple possible field interpretations\n"
+        "   - Syntax ambiguities detected\n\n"
+
+        "3. 【Result Control】Dynamic row limitation:\n"
+        "   - Default: SELECT ... LIMIT 5\n"
+        "   - When user specifies quantity:\n"
+        "     • ≤10 rows: Use specified number\n"
+        "     • >10 rows: Return first 10 only\n\n"
+
+        "4. 【Column Optimization】:\n"
+        "   - Auto-identify relevant columns (e.g., include price for cost queries)\n"
+        "   - Preserve key identifiers (id, name, sku)\n"
+        "   - Exclude unrelated columns for efficiency\n\n"
+
+        "5. 【Format Requirements】:\n"
+        "   - Pure SQL only (no markdown/text)\n"
+        "   - SQLite-compatible syntax\n"
+        "   - Include necessary AS aliases\n\n"
+
+        "Final output: Return ONLY the executable pure text SQL statement without any format."
         ),
     )
     llm = ChatOpenAI(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         temperature=0,
         openai_api_key=openai_api_key,
         streaming=False
@@ -101,6 +128,8 @@ def generate_sql_query(user_question, column_mapping, table_name):
         | StrOutputParser()
     )
     sql_query = sequence.invoke({"question": user_question})
+    sql_query = re.sub(r'^```sql\s*|```$', '', sql_query, flags=re.IGNORECASE | re.MULTILINE)
+    sql_query = sql_query.strip()
     return sql_query
 
 def process_user_query(user_question):
@@ -117,7 +146,7 @@ def process_user_query(user_question):
     conn.close()
 
     sql_query = generate_sql_query(user_question, column_mapping, TABLE_NAME)
-    sql_query = sql_query.strip()
+    sql_query = sql_query.replace('```', '').strip()
 
     result = query_database(DB_PATH, sql_query)
     response = {
