@@ -30,7 +30,7 @@ def read_root():
 @app.post("/chat_stream")
 async def chat_stream_api(payload: dict):
     """Handle chat stream API."""
-    question = payload["question"]
+    # question = payload["question"]
     conversation_data = payload["conversation"]
 
     messages = []
@@ -40,7 +40,7 @@ async def chat_stream_api(payload: dict):
         elif item["sender"] == "assistant":
             messages.append(AIMessage(content=item["content"]))
 
-    messages.append(ChatMessage(content=question, role="user"))
+    # messages.append(ChatMessage(content=question, role="user"))
 
     answer = ""
 

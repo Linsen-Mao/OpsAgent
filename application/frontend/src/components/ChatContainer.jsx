@@ -64,7 +64,7 @@ const ChatContainer = ({ conversation, onUpdateMessages }) => {
     const updatedThinking = [
       ...updatedUser,
       {
-        sender: "bot",
+        sender: "assistant",
         content: "Thinking ",
         id: thinkingId,
         status: "thinking",
@@ -109,7 +109,7 @@ const ChatContainer = ({ conversation, onUpdateMessages }) => {
               // 新增一個空 botMsg(typing)
               const finalMsgId = uuidv4();
               let newMsg = {
-                sender: "bot",
+                sender: "assistant",
                 content: "",
                 id: finalMsgId,
                 status: "typing",
@@ -139,7 +139,7 @@ const ChatContainer = ({ conversation, onUpdateMessages }) => {
       updateLocal([
         ...removeThinking,
         {
-          sender: "bot",
+          sender: "assistant",
           content: "Error: Failed to get response",
           id: uuidv4(),
           status: "error",
