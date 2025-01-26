@@ -1,106 +1,188 @@
-// src/components/ChatContainer.jsx
-import  { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { v4 as uuidv4 } from "uuid";
 import ChatMessage from "./ChatMessage";
 import { fetchChatStream } from "../api/chatbotApi";
 
-const ChatContainer = () => {
-  const [messages, setMessages] = useState([]);
+const ChatContainer = ({ conversation, onUpdateMessages }) => {
+  // 用 local state 來儲存對話中的所有訊息
+  // 一開始先把 props.conversation.messages 複製進來
+  const [localMessages, setLocalMessages] = useState(conversation.messages);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // conversation：要傳給後端的上下文
-  const [conversation, setConversation] = useState([]);
-
   const messageEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
+  const TYPING_SPEED = 5;
+
+
+  // 如果父層切換了另一個 conversation，id 不同，就要重置 localMessages
+  useEffect(() => {
+    setLocalMessages(conversation.messages);
+  }, [conversation.id]);
+
+  // 監聽 localMessages 改變，自動捲動
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [localMessages]);
 
-  // 修改 handleSend 中的流处理逻辑
-const handleSend = async () => {
-  if (!userInput.trim()) return;
+  // 離開時清理
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, []);
 
-  setLoading(true);
+  // 更新 localMessages
+  const updateLocal = (newMsgs) => {
+    setLocalMessages(newMsgs);
+  };
 
-  // 1) 添加用户消息
-  const userMsg = { sender: "user", content: userInput };
-  setMessages((prev) => [...prev, userMsg]);
-  setConversation((prevConv) => [...prevConv, userMsg]);
-  setUserInput("");
+  // 在 SSE 最終結束時，把 localMessages 同步到父層
+  const syncToParent = (msgs) => {
+    onUpdateMessages(msgs);
+  };
 
-  try {
-    // 2) 初始化 bot 消息
-    let botMsg = { sender: "assistant", content: "" };
-    setMessages((prev) => [...prev, botMsg]);
+  const handleSend = async () => {
+    if (!userInput.trim() || loading) return;
+    setLoading(true);
 
-    const reader = await fetchChatStream(userInput, [...conversation, userMsg]);
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
+    // 1) 新增 userMsg 到 local
+    const userMsg = {
+      sender: "user",
+      content: userInput,
+      id: uuidv4(),
+      timestamp: Date.now()
+    };
+    const updatedUser = [...localMessages, userMsg];
+    updateLocal(updatedUser);
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
+    // 2) thinking
+    const thinkingId = uuidv4();
+    const updatedThinking = [
+      ...updatedUser,
+      {
+        sender: "bot",
+        content: "Thinking...",
+        id: thinkingId,
+        status: "thinking",
+        timestamp: Date.now()
+      }
+    ];
+    updateLocal(updatedThinking);
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+    setUserInput("");
 
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.startsWith("data:")) {
+    try {
+      // SSE 送出 current localMessages 來拼對話
+      const reader = await fetchChatStream(userInput, updatedUser);
+
+      let buffer = "";
+      const processChunk = async () => {
+        const { done, value } = await reader.read();
+        if (done) {
+          // SSE 完整結束 → 同步最終 messages 給父層
+          //syncToParent(localMessages);
+          onUpdateMessages(localMessages);
+          return;
+        }
+
+        buffer += new TextDecoder("utf-8").decode(value);
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+
+        for (const event of events) {
+          const dataLine = event.split("\n").find((line) => line.startsWith("data: "));
+          if (!dataLine) continue;
+
           try {
-            const jsonStr = trimmedLine.slice(5).trim();
-            const parsed = JSON.parse(jsonStr);
+            const parsed = JSON.parse(dataLine.slice(6));
 
-            // 处理最终数据
             if (parsed.type === "final") {
-              botMsg.content = parsed.data;
-              updateLastBotMessage(parsed.data);
-              setConversation((prev) => [...prev, botMsg]);
-            }
-            // 处理中间 chunk 数据（如果存在）
-            else if (parsed.type === "chunk") {
-              botMsg.content += parsed.data;
-              updateLastBotMessage(botMsg.content);
-            }
-            // 处理错误
-            else if (parsed.error) {
-              updateLastBotMessage(`Error: ${parsed.error}`);
+              // 移除 thinking
+              let removeThinking = updatedThinking.filter(
+                (m) => m.id !== thinkingId
+              );
+
+              // 新增一個空 botMsg(typing)
+              const finalMsgId = uuidv4();
+              let newMsg = {
+                sender: "bot",
+                content: "",
+                id: finalMsgId,
+                status: "typing",
+                timestamp: Date.now()
+              };
+              let updatedTyping = [...removeThinking, newMsg];
+              updateLocal(updatedTyping);
+
+              // 逐字顯示
+              typeOutFinalAnswer(parsed.data, finalMsgId);
+
+              // 立即同步給父層
+              //syncToParent(localMessages);
+              onUpdateMessages(localMessages);
             }
           } catch (err) {
-            console.error("解析失败:", err);
+            console.error("Parse error:", err);
           }
         }
+        processChunk();
+      };
+      processChunk();
+    } catch (error) {
+      console.error("SSE Error:", error);
+
+      let removeThinking = localMessages.filter((m) => m.id !== thinkingId);
+      updateLocal([
+        ...removeThinking,
+        {
+          sender: "bot",
+          content: "Error: Failed to get response",
+          id: uuidv4(),
+          status: "error",
+          timestamp: Date.now()
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const typeOutFinalAnswer = (fullText, messageId) => {
+    let index = 0;
+
+    const typeChar = () => {
+      if (index < fullText.length) {
+        const currentText = fullText.slice(0, index + 1);
+        // 更新 localMessages
+        setLocalMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, content: currentText } : m
+          )
+        );
+        index++;
+        typingTimeoutRef.current = setTimeout(typeChar, TYPING_SPEED);
+      } else {
+        // 打字完 → status: "final"
+        setLocalMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId ? { ...m, status: "final" } : m
+          )
+        );
+        // TBC: 要不要在這裡 syncToParent(localMessages)？不過 setState 是 async
+        // 在 SSE 結束 (done === true) 再做一次 sync？
+        // 目前存localsorage都失敗QQ
       }
-    }
-  } catch (error) {
-    console.error("请求失败:", error);
-    updateLastBotMessage(`Error: ${error.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // 更新最後一則 bot 訊息的 content
-  const updateLastBotMessage = (text) => {
-  setMessages((prev) => {
-    const newMessages = [...prev];
-    const lastIndex = newMessages.length - 1;
-
-    // 如果最后一条消息是 assistant，直接更新
-    if (lastIndex >= 0 && newMessages[lastIndex].sender === "assistant") {
-      newMessages[lastIndex] = { ...newMessages[lastIndex], content: text };
-    } else {
-      // 否则添加新消息
-      newMessages.push({ sender: "assistant", content: text });
-    }
-
-    return newMessages;
-  });
-};
+    };
+    typeChar();
+  };
 
   const handleKeyDown = (e) => {
+    if (e.nativeEvent.isComposing) {
+      // 還在中文輸入法組字階段，就不處理
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -110,8 +192,14 @@ const handleSend = async () => {
   return (
     <div className="chat-container">
       <div className="chat-messages">
-        {messages.map((m, idx) => (
-          <ChatMessage key={idx} sender={m.sender} content={m.content} />
+        {localMessages.map((m) => (
+          <ChatMessage
+            key={m.id}
+            sender={m.sender}
+            content={m.content}
+            status={m.status}
+            timestamp={m.timestamp}
+          />
         ))}
         <div ref={messageEndRef} />
       </div>
