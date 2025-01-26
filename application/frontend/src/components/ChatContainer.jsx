@@ -1,68 +1,91 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import ChatMessage from "./ChatMessage";
 import { fetchChatStream } from "../api/chatbotApi";
 
-const ChatContainer = () => {
-  const [messages, setMessages] = useState([]);
+const ChatContainer = ({ conversation, onUpdateMessages }) => {
+  // 用 local state 來儲存對話中的所有訊息
+  // 一開始先把 props.conversation.messages 複製進來
+  const [localMessages, setLocalMessages] = useState(conversation.messages);
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [conversation, setConversation] = useState([]);
-  const messageEndRef = useRef(null);
 
+  const messageEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
   const TYPING_SPEED = 5;
+  
 
+  // 如果父層切換了另一個 conversation，id 不同，就要重置 localMessages
+  useEffect(() => {
+    setLocalMessages(conversation.messages);
+  }, [conversation.id]);
+
+  // 監聽 localMessages 改變，自動捲動
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [localMessages]);
 
+  // 離開時清理
   useEffect(() => {
-    // 组件卸载时清理定时器
     return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, []);
 
-  /**
-   * 发送消息
-   */
+  // 更新 localMessages
+  const updateLocal = (newMsgs) => {
+    setLocalMessages(newMsgs);
+  };
+
+  // 在 SSE 最終結束時，把 localMessages 同步到父層
+  const syncToParent = (msgs) => {
+    onUpdateMessages(msgs);
+  };
+
   const handleSend = async () => {
     if (!userInput.trim() || loading) return;
     setLoading(true);
 
+    // 1) 新增 userMsg 到 local
     const userMsg = {
       sender: "user",
       content: userInput,
       id: uuidv4(),
       timestamp: Date.now()
     };
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedUser = [...localMessages, userMsg];
+    updateLocal(updatedUser);
 
+    // 2) thinking
     const thinkingId = uuidv4();
-    setMessages((prev) => [
-      ...prev,
+    const updatedThinking = [
+      ...updatedUser,
       {
         sender: "bot",
-        content: "Thinking ",
+        content: "Thinking...",
         id: thinkingId,
         status: "thinking",
         timestamp: Date.now()
       }
-    ]);
+    ];
+    updateLocal(updatedThinking);
+
+    setUserInput("");
 
     try {
-      const currentConversation = [...conversation, { sender: "user", content: userInput }];
-      setUserInput("");
+      // SSE 送出 current localMessages 來拼對話
+      const reader = await fetchChatStream(userInput, updatedUser);
 
-      const reader = await fetchChatStream(userInput, currentConversation);
       let buffer = "";
       const processChunk = async () => {
         const { done, value } = await reader.read();
-        if (done) return;
+        if (done) {
+          // SSE 完整結束 → 同步最終 messages 給父層
+          //syncToParent(localMessages);
+          onUpdateMessages(localMessages);
+          return;
+        }
 
         buffer += new TextDecoder("utf-8").decode(value);
         const events = buffer.split("\n\n");
@@ -75,35 +98,30 @@ const ChatContainer = () => {
           try {
             const parsed = JSON.parse(dataLine.slice(6));
 
-            if (parsed.type === "stream") {
-              // 忽略中间 stream，不做任何处理
-            }
-
             if (parsed.type === "final") {
-              // 收到最终结果 -> 逐字打印
-              const finalContent = parsed.data;
+              // 移除 thinking
+              let removeThinking = updatedThinking.filter(
+                (m) => m.id !== thinkingId
+              );
 
-              // 移除「Thinking...」占位
-              setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
-
-              // 新建一个空消息来逐字打印
+              // 新增一個空 botMsg(typing)
               const finalMsgId = uuidv4();
-              setMessages((prev) => [
-                ...prev,
-                {
-                  sender: "bot",
-                  content: "",
-                  id: finalMsgId,
-                  status: "typing", // 用于打字机动画
-                  timestamp: Date.now()
-                }
-              ]);
+              let newMsg = {
+                sender: "bot",
+                content: "",
+                id: finalMsgId,
+                status: "typing",
+                timestamp: Date.now()
+              };
+              let updatedTyping = [...removeThinking, newMsg];
+              updateLocal(updatedTyping);
 
-              // 启动打字机
-              typeOutFinalAnswer(finalContent, finalMsgId);
+              // 逐字顯示
+              typeOutFinalAnswer(parsed.data, finalMsgId);
 
-              // 更新会话
-              setConversation((prev) => [...prev, { sender: "bot", content: finalContent }]);
+              // 立即同步給父層
+              //syncToParent(localMessages);
+              onUpdateMessages(localMessages);
             }
           } catch (err) {
             console.error("Parse error:", err);
@@ -114,15 +132,14 @@ const ChatContainer = () => {
       processChunk();
     } catch (error) {
       console.error("SSE Error:", error);
-      setMessages((prev) => prev.filter((m) => m.id !== thinkingId));
 
-      const errId = uuidv4();
-      setMessages((prev) => [
-        ...prev,
+      let removeThinking = localMessages.filter((m) => m.id !== thinkingId);
+      updateLocal([
+        ...removeThinking,
         {
           sender: "bot",
           content: "Error: Failed to get response",
-          id: errId,
+          id: uuidv4(),
           status: "error",
           timestamp: Date.now()
         }
@@ -138,7 +155,8 @@ const ChatContainer = () => {
     const typeChar = () => {
       if (index < fullText.length) {
         const currentText = fullText.slice(0, index + 1);
-        setMessages((prev) =>
+        // 更新 localMessages
+        setLocalMessages((prev) =>
           prev.map((m) =>
             m.id === messageId ? { ...m, content: currentText } : m
           )
@@ -146,19 +164,25 @@ const ChatContainer = () => {
         index++;
         typingTimeoutRef.current = setTimeout(typeChar, TYPING_SPEED);
       } else {
-        // 打字完毕，状态改为 final
-        setMessages((prev) =>
+        // 打字完 → status: "final"
+        setLocalMessages((prev) =>
           prev.map((m) =>
             m.id === messageId ? { ...m, status: "final" } : m
           )
         );
+        // TBC: 要不要在這裡 syncToParent(localMessages)？不過 setState 是 async
+        // 在 SSE 結束 (done === true) 再做一次 sync？
+        // 目前存localsorage都失敗QQ
       }
     };
-
     typeChar();
   };
 
   const handleKeyDown = (e) => {
+    if (e.nativeEvent.isComposing) {
+      // 還在中文輸入法組字階段，就不處理
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -168,7 +192,7 @@ const ChatContainer = () => {
   return (
     <div className="chat-container">
       <div className="chat-messages">
-        {messages.map((m) => (
+        {localMessages.map((m) => (
           <ChatMessage
             key={m.id}
             sender={m.sender}
