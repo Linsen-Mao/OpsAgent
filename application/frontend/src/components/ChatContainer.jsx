@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import ChatMessage from "./ChatMessage";
 import { fetchChatStream } from "../api/chatbotApi";
 
+// eslint-disable-next-line react/prop-types
 const ChatContainer = ({ conversation, onUpdateMessages }) => {
   // 用 local state 來儲存對話中的所有訊息
   // 一開始先把 props.conversation.messages 複製進來
@@ -18,6 +19,7 @@ const ChatContainer = ({ conversation, onUpdateMessages }) => {
 
   // 如果父層切換了另一個 conversation，id 不同，就要重置 localMessages
   useEffect(() => {
+    // eslint-disable-next-line react/prop-types
     setLocalMessages(conversation.messages);
   }, [conversation.id]);
 
@@ -63,7 +65,7 @@ const ChatContainer = ({ conversation, onUpdateMessages }) => {
       ...updatedUser,
       {
         sender: "bot",
-        content: "Thinking...",
+        content: "Thinking ",
         id: thinkingId,
         status: "thinking",
         timestamp: Date.now()
