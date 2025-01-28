@@ -1,12 +1,9 @@
-# chatbot.py (unchanged except that we don't rename "role" -> "sender" here
-# because we only do that in ecommerce_chat_tool or other places where we build a Conversation)
+
 import asyncio
 import os
-import json
+
 
 from dotenv import load_dotenv
-
-from application.backend.chatbot.conversation import Conversation
 from application.backend.chatbot.prompts import ANSWER_PROMPT
 from application.backend.datastore.db import ChatbotVectorDatabase
 from langchain_openai import ChatOpenAI
@@ -39,15 +36,11 @@ class Chatbot:
             streaming=False
         )
 
-        # Build the chain context
-        # history = conversation.get_history()
-
         docs_from_vdb = self.chatvec.search(
             query=question,
             top_k=3,
         )
 
-        # Collate retrieved docs into a context string
         context = ""
         for i, res in enumerate(docs_from_vdb):
             replaced_text = res['text'].replace('\n', ' ')
@@ -65,8 +58,6 @@ class Chatbot:
         )
 
         answer = ""
-        # Because we used streaming=False above, the chain won't yield partial tokens;
-        # but if you want partial tokens, set streaming=True and handle them below.
         for chunk in conversational_qa_chain.stream(
             {"question": question}
         ):
