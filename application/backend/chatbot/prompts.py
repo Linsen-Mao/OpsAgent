@@ -52,19 +52,20 @@ supervisor_prompt = (
     "3) If we do not have the necessary information, decide which agent to contact and provide specific instructions (in 'instructions').\n"
     "4) If we do have some information, evaluate if it is sufficient to fully answer the user's query; if it is not, decide which agent to contact and provide the necessary instructions (in 'instructions').\n"
     "5) If the available information is sufficient to answer the user's query, then respond with 'FINISH'.\n\n"
-    "Additional instructions for output format:\n"
+    "Output Format:\n"
     "Your output MUST be valid JSON adhering to the following schema:\n"
     "   {\n"
     '     "next": "agent_name/FINISH",\n'
     '     "instructions": "concrete task description",\n'
-    '     "reason": "a detailed explanation that includes: (1) an analysis of the user query; (2) an evaluation of whether we have sufficient information to answer it; (3) if not, which agent should be contacted and what instructions are provided; (4) if yes, a decision to finish the conversation"\n'
+    '     "title": "a short title summarizing the reason",\n'
+    '     "reason": "a detailed explanation of the supervisor\'s reasoning. This should include an analysis of the user query, whether we have sufficient information to answer it, and if not, which agent should be contacted and what specific instructions are needed. If sufficient information exists, explain why the conversation should be finished. The explanation should be written as a continuous text without bullet points."\n'
     "   }\n\n"
     "For example, if the user query is: \"I'm looking for 5 products for automotive applications with a Cortex-M23 chip, "
     "and also I'd like to know how to add them to my e-commerce site,\" and you already have the product information for the 5 items, "
     "then your next step should be to ask 'ecommerce_agent' for instructions on how to add these products to the e-commerce site. "
-    "Your 'instructions' field should clearly state this task, and your 'reason' field should explain that since the product details are complete, "
-    "the next logical step is to obtain e-commerce integration details, and that the 'instructions' include the specific guidance for adding "
-    "the products to the e-commerce site."
+    "Your 'instructions' field should clearly state this task, your 'title' should briefly summarize that e-commerce integration details are needed, "
+    "and your 'reason' should explain that since the product details are complete, the next logical step is to obtain specific guidance on "
+    "adding the products to the e-commerce site."
 )
 
 final_prompt = (

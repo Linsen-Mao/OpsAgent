@@ -5,7 +5,7 @@ from dotenv import find_dotenv, load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, ChatMessage
+from langchain_core.messages import AIMessage, ChatMessage, HumanMessage
 
 from application.backend.chatbot.chatbot_supervisor import graph
 
@@ -47,15 +47,23 @@ async def chat_stream_api(payload: dict):
                 for key, value in chunk.items():
                     if isinstance(value, dict) and "messages" in value:
                         conversation_messages = value["messages"]
-                        if conversation_messages and isinstance(conversation_messages[-1], AIMessage):
-                            current_content = conversation_messages[-1].content
-                            answer = current_content
+                        if conversation_messages and isinstance(conversation_messages[-1], HumanMessage) and \
+                                conversation_messages[-1].name == "supervisor_instructions":
+                            metadata = conversation_messages[-1].model_extra
+                            title = metadata.title
+                            reason = metadata.reason
 
                             data = json.dumps({
                                 "type": "stream",
-                                "data": current_content
+                                "data": {
+                                    "title": title,
+                                    "reason": reason
+                                }
                             })
                             yield f"data: {data}\n\n"
+                        if conversation_messages and isinstance(conversation_messages[-1], AIMessage):
+                            current_content = conversation_messages[-1].content
+                            answer = current_content
 
         except Exception as e:
             error_data = json.dumps({"error": str(e)})

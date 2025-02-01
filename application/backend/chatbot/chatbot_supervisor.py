@@ -140,6 +140,8 @@ def supervisor_node(state: SupervisorState) -> Command[
 
     next_agent = llm_output["next"]
     instructions = llm_output["instructions"]
+    title = llm_output["title"]
+    reason = llm_output["reason"]
 
     if next_agent == "FINISH":
         final_answer = produce_final_answer(state["messages"], model)
@@ -149,7 +151,8 @@ def supervisor_node(state: SupervisorState) -> Command[
             update={"messages": state["messages"] + [finish_msg]}
         )
 
-    new_user_msg = HumanMessage(content=instructions, name="supervisor_instructions", role="user")
+    new_user_msg = HumanMessage(content=instructions, title=title, reason=reason, name="supervisor_instructions",
+                                role="user")
     updated_msgs = state["messages"] + [new_user_msg]
 
     return Command(
