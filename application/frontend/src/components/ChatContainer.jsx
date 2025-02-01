@@ -1,8 +1,8 @@
-// src/components/ChatContainer.jsx
 import React, {useEffect, useRef, useState} from "react";
 import {v4 as uuidv4} from "uuid";
 import ChatMessage from "./ChatMessage";
 import {fetchChatStream} from "../api/chatbotApi";
+import {ArrowUpIcon} from "@heroicons/react/24/solid";
 
 const ChatContainer = ({conversation, onUpdateMessages}) => {
     const [localMessages, setLocalMessages] = useState(conversation.messages);
@@ -141,18 +141,22 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
                 const events = buffer.split("\n\n");
                 buffer = events.pop() || "";
                 for (const event of events) {
-                    const dataLine = event.split("\n").find((line) => line.startsWith("data: "));
+                    const dataLine = event
+                        .split("\n")
+                        .find((line) => line.startsWith("data: "));
                     if (!dataLine) continue;
                     try {
                         const parsed = JSON.parse(dataLine.slice(6));
                         if (parsed.type === "stream") {
                             const {title, reason} = parsed.data;
                             const newLine = `**${title}**\n\n${reason}`;
-                            streamChainRef.current[assistantMsgId] = streamChainRef.current[assistantMsgId]
-                                .then(() => typeOutStreamChunk(newLine, assistantMsgId));
+                            streamChainRef.current[assistantMsgId] =
+                                streamChainRef.current[assistantMsgId].then(() =>
+                                    typeOutStreamChunk(newLine, assistantMsgId)
+                                );
                         } else if (parsed.type === "final") {
-                            streamChainRef.current[assistantMsgId] = streamChainRef.current[assistantMsgId]
-                                .then(() => {
+                            streamChainRef.current[assistantMsgId] =
+                                streamChainRef.current[assistantMsgId].then(() => {
                                     updateAssistantMessage(assistantMsgId, (msg) => ({
                                         ...msg,
                                         thinking: false,
@@ -209,7 +213,6 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
             </div>
             <div className="chat-input-area">
         <textarea
-            rows="1"
             placeholder="Send a message..."
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
@@ -217,7 +220,7 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
             disabled={loading}
         />
                 <button onClick={handleSend} disabled={loading}>
-                    {loading ? "Thinking..." : "Send"}
+                    <ArrowUpIcon className={`send-icon ${loading ? "spinner" : ""}`}/>
                 </button>
             </div>
         </div>

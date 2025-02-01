@@ -1,16 +1,14 @@
-// src/pages/Home.jsx
 import React, {useState} from "react";
 import {v4 as uuidv4} from "uuid";
 import ChatContainer from "../components/ChatContainer";
 import "../styles/ChatGPTStyle.css";
 
 function Home() {
-
     // 使用单一对话对象，初始为空对话
     const [conversation, setConversation] = useState({
         id: uuidv4(),
         title: "Chat",
-        messages: []
+        messages: [],
     });
 
     // 刷新按钮处理函数，清空当前对话并清除本地存储记录
@@ -18,7 +16,7 @@ function Home() {
         setConversation({
             id: uuidv4(),
             title: "Chat",
-            messages: []
+            messages: [],
         });
         localStorage.removeItem("myConversations");
     };
@@ -27,7 +25,12 @@ function Home() {
         <div className="home-container">
             <div
                 className="chat-wrapper"
-                style={{position: "relative", flex: 1, display: "flex", flexDirection: "column"}}
+                style={{
+                    position: "relative",
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                }}
             >
                 {/* 刷新按钮：位于左上角 */}
                 <button className="refresh-button" title="Refresh" onClick={handleRefresh}>
@@ -50,7 +53,9 @@ function Home() {
                 </button>
                 <ChatContainer
                     conversation={conversation}
-                    onUpdateMessages={(newMsgs) => setConversation({...conversation, messages: newMsgs})}
+                    onUpdateMessages={(newMsgs) =>
+                        setConversation({...conversation, messages: newMsgs})
+                    }
                 />
             </div>
         </div>

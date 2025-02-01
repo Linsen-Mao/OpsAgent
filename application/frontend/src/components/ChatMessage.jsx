@@ -1,9 +1,11 @@
-// src/components/ChatMessage.jsx
 import React, {useState} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import {CpuChipIcon, UserCircleIcon} from "@heroicons/react/24/solid";
+// 对于 assistant 使用固体风格图标
+import {CpuChipIcon} from "@heroicons/react/24/solid";
+// 对于 user 使用 outline 风格图标（黑白）
+import {UserIcon} from "@heroicons/react/24/outline";
 
 const ChatMessage = (props) => {
     const {
@@ -29,7 +31,7 @@ const ChatMessage = (props) => {
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style"/>
+                            <UserIcon className="icon-style"/>
                         ) : (
                             <CpuChipIcon className="icon-style"/>
                         )}
@@ -41,22 +43,15 @@ const ChatMessage = (props) => {
                             </div>
                         )}
                         {stream && (
-                            <CompositePanel panelType="stream" content={stream} timestamp={timestamp}/>
+                            <CompositePanel panelType="stream" content={stream}/>
                         )}
                         {(finalStatus === "typing" || finalStatus === "final" || finalContent) && (
                             <CompositePanel
                                 panelType="final"
                                 content={finalContent}
-                                timestamp={timestamp}
                                 isTyping={finalStatus === "typing"}
                             />
                         )}
-                        <div className="message-timestamp">
-                            {new Date(timestamp).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
-                        </div>
                     </div>
                 </div>
             </div>
@@ -70,7 +65,7 @@ const ChatMessage = (props) => {
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style"/>
+                            <UserIcon className="icon-style"/>
                         ) : (
                             <CpuChipIcon className="icon-style"/>
                         )}
@@ -79,12 +74,6 @@ const ChatMessage = (props) => {
                         <div className="thinking-text">
                             {content}
                             <span className="dot-flashing"></span>
-                        </div>
-                        <div className="message-timestamp">
-                            {new Date(timestamp).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
                         </div>
                     </div>
                 </div>
@@ -99,19 +88,13 @@ const ChatMessage = (props) => {
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style"/>
+                            <UserIcon className="icon-style"/>
                         ) : (
                             <CpuChipIcon className="icon-style"/>
                         )}
                     </div>
                     <div className="message-container">
                         <div className="error-message">⚠️ {content}</div>
-                        <div className="message-timestamp">
-                            {new Date(timestamp).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
-                        </div>
                     </div>
                 </div>
             </div>
@@ -125,7 +108,7 @@ const ChatMessage = (props) => {
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style"/>
+                            <UserIcon className="icon-style"/>
                         ) : (
                             <CpuChipIcon className="icon-style"/>
                         )}
@@ -135,25 +118,19 @@ const ChatMessage = (props) => {
                             {content}
                         </ReactMarkdown>
                         <span className="typing-cursor">▌</span>
-                        <div className="message-timestamp">
-                            {new Date(timestamp).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
-                        </div>
                     </div>
                 </div>
             </div>
         );
     }
 
-    // 默认：最终回复或用户消息
+    // 默认：最终回复或用户消息（去除时间显示）
     return (
         <div className={`chat-message ${sender} final`}>
             <div className="chat-bubble">
                 <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                     {sender === "user" ? (
-                        <UserCircleIcon className="icon-style"/>
+                        <UserIcon className="icon-style"/>
                     ) : (
                         <CpuChipIcon className="icon-style"/>
                     )}
@@ -162,12 +139,6 @@ const ChatMessage = (props) => {
                     <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                         {content}
                     </ReactMarkdown>
-                    <div className="message-timestamp">
-                        {new Date(timestamp).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                        })}
-                    </div>
                     {/* 如果是 assistant 的最终回复，提供复制功能 */}
                     {sender === "assistant" && finalStatus === "final" && (
                         <button
@@ -185,7 +156,7 @@ const ChatMessage = (props) => {
 };
 
 // Composite Panel 用于显示复合回复中的 stream / final 部分
-const CompositePanel = ({panelType, content, timestamp, isTyping}) => {
+const CompositePanel = ({panelType, content, isTyping}) => {
     const [isOpen, setIsOpen] = useState(true);
     let header = "";
     let body = "";
