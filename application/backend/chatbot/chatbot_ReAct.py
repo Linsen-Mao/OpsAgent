@@ -1,19 +1,18 @@
 import os
-from dotenv import load_dotenv
-from typing_extensions import Literal, Annotated, TypedDict
 
+from dotenv import load_dotenv
 from langchain_core.messages import convert_to_messages, HumanMessage, AnyMessage, AIMessage
 from langchain_core.tools import tool
 from langchain_core.tools.base import InjectedToolCallId
-from langgraph.graph import StateGraph, START, add_messages, END
-from langgraph.types import Command
-from langgraph.prebuilt import create_react_agent, InjectedState
-
 from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph, START, add_messages
+from langgraph.prebuilt import create_react_agent, InjectedState
+from langgraph.types import Command
+from typing_extensions import Literal, Annotated, TypedDict
 
-from application.backend.chatbot.chatbot import Chatbot
 from application.backend.chatbot.conversation import Conversation
-from application.backend.chatbot.product_selection import process_user_query
+from application.backend.chatbot.ecommmerce_query import ecommerce_query
+from application.backend.chatbot.product_query import process_user_query
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -25,9 +24,11 @@ model = ChatOpenAI(
     streaming=False
 )
 
+
 class MessagesState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     conversation: Conversation
+
 
 def get_latest_human_question(state: MessagesState) -> str:
     """Return the most recent HumanMessage."""
@@ -37,10 +38,10 @@ def get_latest_human_question(state: MessagesState) -> str:
             return msg.content
     return ""
 
+
 @tool
 def ecommerce_chat_tool(state: Annotated[dict, InjectedState]) -> str:
     """Handle e-commerce chat tool."""
-    chatbot = Chatbot()
     question = get_latest_human_question(state)
     messages = state.get("messages", [])
     conversation_data = []
@@ -60,7 +61,8 @@ def ecommerce_chat_tool(state: Annotated[dict, InjectedState]) -> str:
 
     conversation = Conversation(conversation=conversation_data)
 
-    return chatbot.chat_stream(question, conversation)
+    return ecommerce_query(question, conversation)
+
 
 def make_handoff_tool(*, agent_name: str):
     """Create a handoff tool."""
@@ -86,6 +88,7 @@ def make_handoff_tool(*, agent_name: str):
 
     return handoff_to_agent
 
+
 @tool
 def general_tool():
     """Handle general queries."""
@@ -98,6 +101,7 @@ def product_query_tool(state: Annotated[dict, InjectedState]) -> str:
     question = get_latest_human_question(state)
     result = process_user_query(question)
     return result
+
 
 commerce_tools = [
     ecommerce_chat_tool,
@@ -128,11 +132,13 @@ product_selection_agent = create_react_agent(
     ),
 )
 
+
 def call_product_selection_agent(
-    state: MessagesState,
+        state: MessagesState,
 ) -> Command[Literal["ecommerce_agent"]]:
     """Call the product selection agent."""
     return product_selection_agent.invoke(state)
+
 
 ecommerce_agent = create_react_agent(
     model,
@@ -144,11 +150,13 @@ ecommerce_agent = create_react_agent(
     ),
 )
 
+
 def call_ecommerce_agent(
-    state: MessagesState,
+        state: MessagesState,
 ) -> Command[Literal["product_selection_agent"]]:
     """Call the e-commerce agent."""
     return ecommerce_agent.invoke(state)
+
 
 general_agent = create_react_agent(
     model,
@@ -161,6 +169,7 @@ general_agent = create_react_agent(
     ),
 )
 
+
 def decide_tool_based_on_query(query: str) -> str:
     if "product" in query.lower() or "specification" in query.lower():
         return "transfer_to_product_selection_agent"
@@ -170,7 +179,7 @@ def decide_tool_based_on_query(query: str) -> str:
 
 
 def call_general_agent(
-    state: MessagesState,
+        state: MessagesState,
 ) -> Command[Literal["product_selection_agent", "ecommerce_agent"]]:
     """Call the general agent."""
     question = get_latest_human_question(state)
@@ -218,6 +227,7 @@ def pretty_print_messages(update):
             m.pretty_print()
         print("\n")
 
+
 if __name__ == '__main__':
     # user_messages = [("user", "how to change the e-commerce system to allow customers to earn loyalty points")]
     # user_messages = [("user", "What are the core, operate Frequent, Operating Temperature and application for the product M0A21EB1AC?")]
@@ -225,8 +235,8 @@ if __name__ == '__main__':
     # user_messages = [("user", "Please provide me 5 products which application is Automotive, and the chip is Cortex-M23, and how to add those products into our e-commerce website?")]
     user_messages = [("user", "123")]
     for chunk in graph.stream(
-        {
-            "messages": user_messages,
-        }
+            {
+                "messages": user_messages,
+            }
     ):
         pretty_print_messages(chunk)
