@@ -1,21 +1,29 @@
-from azure.cosmos import CosmosClient
+import os
+
 import numpy as np
+from azure.cosmos import CosmosClient
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()
+openai_api_key = os.getenv("OPENAI_API_KEY")
+COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT")
+COSMOS_KEY = os.getenv("COSMOS_KEY")
+COSMOS_DATABASE_NAME = os.getenv("COSMOS_DATABASE_NAME")
+COSMOS_CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
+
 
 class ChatbotVectorDatabase:
     PDF_PATH = "User_manual.pdf"
-    COSMOS_ENDPOINT = "https://chatbotgenai.documents.azure.com:443/"
-    COSMOS_KEY = "Igqj9FsXb4nU2QVHXFXqAwfGFLwRYBODvaJR4rmBn1L8MwoPOOw7lJbyJWLPGl60JIoTFQEvnqLvACDbDgheXg=="
-    COSMOS_DATABASE_NAME = "Embeddings"
-    COSMOS_CONTAINER_NAME = "embeddings1"
 
     def __init__(self):
         # Initialize the Cosmos DB client
-        self.cosmos_client = CosmosClient(self.COSMOS_ENDPOINT, self.COSMOS_KEY)
-        self.database = self.cosmos_client.get_database_client(self.COSMOS_DATABASE_NAME)
-        self.container = self.database.get_container_client(self.COSMOS_CONTAINER_NAME)
+        self.cosmos_client = CosmosClient(COSMOS_ENDPOINT, COSMOS_KEY)
+        self.database = self.cosmos_client.get_database_client(COSMOS_DATABASE_NAME)
+        self.container = self.database.get_container_client(COSMOS_CONTAINER_NAME)
         # Initialize OpenAI client
-        self.openai_client = OpenAI(api_key="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")
+        self.openai_client = OpenAI(
+            api_key=openai_api_key)
 
     @staticmethod
     def cosine_similarity(vec1, vec2):

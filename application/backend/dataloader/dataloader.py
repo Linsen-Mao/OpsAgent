@@ -1,17 +1,22 @@
+import os
+
 from PyPDF2 import PdfReader
 from azure.cosmos import CosmosClient
+from dotenv import load_dotenv
 from openai import OpenAI
 
 # Configuration
 PDF_PATH = "User_manual.pdf"
-COSMOS_ENDPOINT = "https://chatbotgenai.documents.azure.com:443/"
-COSMOS_KEY = "Igqj9FsXb4nU2QVHXFXqAwfGFLwRYBODvaJR4rmBn1L8MwoPOOw7lJbyJWLPGl60JIoTFQEvnqLvACDbDgheXg=="
-COSMOS_DATABASE_NAME = "Embeddings"
-COSMOS_CONTAINER_NAME = "embeddings1"
-OPENAI_API_KEY = "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"
+
+load_dotenv()
+openai_api_key = os.getenv("OPENAI_API_KEY")
+COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT")
+COSMOS_KEY = os.getenv("COSMOS_KEY")
+COSMOS_DATABASE_NAME = os.getenv("COSMOS_DATABASE_NAME")
+COSMOS_CONTAINER_NAME = os.getenv("COSMOS_CONTAINER_NAME")
 
 # Initialize OpenAI client
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key=openai_api_key)
 
 # Initialize Cosmos DB client
 cosmos_client = CosmosClient(COSMOS_ENDPOINT, COSMOS_KEY)
@@ -135,10 +140,12 @@ def main():
 if __name__ == "__main__":
     main()
 
+
 def calculate_embedding_cost(num_tokens, model="text-embedding-3-large"):
     """Calculate the cost of embeddings based on token count."""
     cost_per_1000_tokens = 0.0001  # Cost for text-embedding-3-large
     return (num_tokens / 1000) * cost_per_1000_tokens
+
 
 def process_pdf(pdf_path):
     """Process a PDF, extracting text, and return embedded data."""
@@ -204,6 +211,7 @@ def main():
         print("Storing data in Cosmos DB...")
         store_in_cosmos(embedded_data)
         print("Process completed successfully!")
+
 
 if __name__ == "__main__":
     main()

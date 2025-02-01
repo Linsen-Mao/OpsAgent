@@ -5,10 +5,11 @@ import sqlite3
 
 import pandas as pd
 from dotenv import load_dotenv
-from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
+
+from application.backend.chatbot.prompts import PRODUCT_QUERY_PROMPT
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -64,10 +65,10 @@ def query_database(db_path, query):
     conn = sqlite3.connect(db_path)
     try:
         print(f"Executing SQL Query: {query}")
-        result = pd.read_sql(query, conn)
+        product_result = pd.read_sql(query, conn)
         result_json = [
             {col: row for col, row in row_data.items() if pd.notna(row)}
-            for _, row_data in result.iterrows()
+            for _, row_data in product_result.iterrows()
         ]
         result_string = json.dumps(result_json, indent=2)
     except Exception as e:
@@ -77,41 +78,7 @@ def query_database(db_path, query):
     return result_string
 
 
-def generate_sql_query(user_question, column_mapping, table_name):
-    prompt = PromptTemplate(
-        input_variables=["question", "columns", "table_name"],
-        template=(
-            "Act as a professional SQL assistant. Generate valid and efficient SQLite queries based on user requirements.\n"
-            "Given parameters:\n"
-            "- Table: {table_name}\n"
-            "- Available columns: {columns}\n"
-            "- User question: {question}\n\n"
-
-            "Generation rules:\n"
-            "1. 【Fuzzy Matching Priority】For text-based searches (names, descriptions):\n"
-            "   - Use LIKE with % wildcards for pattern matching\n"
-            "   - Consider common spelling variants and multilingual terms\n\n"
-
-            "2. 【Intelligent Fallback】Return more products when:\n"
-            "   - Uncertain about exact filter criteria\n"
-            "   - Ambiguous user description\n"
-            "   - Multiple possible field interpretations\n"
-            "   - Syntax ambiguities detected\n\n"
-
-            "4. 【Column Optimization】:\n"
-            "   - Auto-identify relevant columns\n"
-            "   - Preserve key identifiers\n"
-            "   - Use Columns with values varied to ensure the result is distinct\n"
-            "   - Exclude unrelated columns for efficiency\n\n"
-
-            "5. 【Format Requirements】:\n"
-            "   - Pure SQL only (no markdown/text)\n"
-            "   - SQLite-compatible syntax\n"
-            "   - Include necessary AS aliases\n\n"
-
-            "Final output: Return ONLY the executable pure text SQL statement without any format."
-        ),
-    )
+def generate_sql_query(query, column_mapping, table_name):
     llm = ChatOpenAI(
         model="gpt-4o",
         temperature=0,
@@ -124,17 +91,17 @@ def generate_sql_query(user_question, column_mapping, table_name):
                 "columns": lambda _: ", ".join(column_mapping),
                 "table_name": lambda _: table_name,
             }
-            | prompt
+            | PRODUCT_QUERY_PROMPT
             | llm
             | StrOutputParser()
     )
-    sql_query = sequence.invoke({"question": user_question})
+    sql_query = sequence.invoke({"question": query})
     sql_query = re.sub(r'^```sql\s*|```$', '', sql_query, flags=re.IGNORECASE | re.MULTILINE)
     sql_query = sql_query.strip()
     return sql_query
 
 
-def process_user_query(user_question):
+def process_user_query(query):
     # Check if the database and table are ready
     if not is_database_ready(DB_PATH, TABLE_NAME):
         print("Database or table not found. Regenerating from Excel file.")
@@ -147,12 +114,12 @@ def process_user_query(user_question):
     column_mapping = pd.read_sql(f"PRAGMA table_info({TABLE_NAME});", conn)['name'].tolist()
     conn.close()
 
-    sql_query = generate_sql_query(user_question, column_mapping, TABLE_NAME)
+    sql_query = generate_sql_query(query, column_mapping, TABLE_NAME)
     sql_query = sql_query.replace('```', '').strip()
 
-    result = query_database(DB_PATH, sql_query)
+    product_result = query_database(DB_PATH, sql_query)
     response = {
-        "result": result,
+        "result": product_result,
         "parameters": column_mapping[:20],
     }
     return json.dumps(response, indent=2)

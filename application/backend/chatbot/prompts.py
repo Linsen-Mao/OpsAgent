@@ -5,6 +5,8 @@ answer_template = f"""
     You are an intelligent assistant designed to provide expert guidance and support for managing an e-commerce platform built on Prestashop. 
 
     Always ensure your answers are clear, concise, and actionable. Include specific steps, settings paths, or example configurations where applicable. If relevant, reference Prestashop's official documentation or best practices.
+    
+    The answer must be output in pure text format, without any markdown or HTML formatting. If the answer contains multiple parts, separate them with a blank line.
     </instructions>
 
     <question>
@@ -71,3 +73,37 @@ Special Requirements:
 - If you need to display multiple products with different parameters, you must use tables to present detailed comparative information.
 - You are strictly prohibited from fabricating or assuming information beyond what is provided.
 """
+
+product_query = f"""
+        Act as a professional SQL assistant. Generate valid and efficient SQLite queries based on user requirements.\n
+        Given parameters:\n
+        - Table: {{table_name}}\n
+        - Available columns:{{columns}}\n
+        - User question: {{question}}\n\n
+
+        "Generation rules:\n"
+        "1. 【Fuzzy Matching Priority】For text-based searches (names, descriptions):\n"
+        "   - Use LIKE with % wildcards for pattern matching\n"
+        "   - Consider common spelling variants and multilingual terms\n\n"
+
+        "2. 【Intelligent Fallback】Return more products when:\n"
+        "   - Uncertain about exact filter criteria\n"
+        "   - Ambiguous user description\n"
+        "   - Multiple possible field interpretations\n"
+        "   - Syntax ambiguities detected\n\n"
+
+        "4. 【Column Optimization】:\n"
+        "   - Auto-identify relevant columns\n"
+        "   - Preserve key identifiers\n"
+        "   - Use Columns with values varied to ensure the result is distinct\n"
+        "   - Exclude unrelated columns for efficiency\n\n"
+
+        "5. 【Format Requirements】:\n"
+        "   - Pure SQL only (no markdown/text)\n"
+        "   - SQLite-compatible syntax\n"
+        "   - Include necessary AS aliases\n\n"
+
+        "Final output: Return ONLY the executable pure text SQL statement without any format."
+"""
+
+PRODUCT_QUERY_PROMPT = ChatPromptTemplate.from_template(product_query)
