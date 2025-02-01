@@ -49,25 +49,6 @@ interaction.
 4. **Final Answer:** If the **Supervisor** decides to finish, it consolidates all conversation data and generates a
    final answer.
 
-## Key Functionalities
-
-### Product Query Agent
-
-- **SQL Query Generation:** Uses a GPT-4 based approach to generate optimized SQL statements.
-- **Query Execution:** Runs the SQL query against the `product_parameters` table.
-- **Data Retrieval:** Returns JSON-formatted product details to the user.
-
-### E-Commerce Agent
-
-- **Context Retrieval:** Searches the **ChatbotVectorDatabase** for the most relevant documents.
-- **Prompt Construction:** Merges user queries with retrieved context to generate accurate responses.
-- **Scalable Integration:** Modular design allows for seamless integration into additional tools.
-
-## Extensibility
-
-OpsAgent's modular architecture ensures scalability and maintainability, allowing for the easy introduction of
-additional sub-agents with minimal impact on existing components.
-
 ## Future Enhancements
 
 - **Additional Sub-Agents:** Expand capabilities to support more specialized domains.
