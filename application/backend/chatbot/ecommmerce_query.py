@@ -26,7 +26,7 @@ def ecommerce_query(
 
     docs_from_vdb = chatvec.search(
         query=question,
-        top_k=3,
+        top_k=4,
     )
 
     context = ""

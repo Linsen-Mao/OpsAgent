@@ -21,9 +21,22 @@ from application.backend.chatbot.prompts import product_query_prompt, ecommerce_
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
+model_mini = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    openai_api_key=openai_api_key,
+    streaming=False
+)
+
 model = ChatOpenAI(
     model="gpt-4o",
     temperature=0,
+    openai_api_key=openai_api_key,
+    streaming=False
+)
+
+model_o1 = ChatOpenAI(
+    model="o1-mini",
     openai_api_key=openai_api_key,
     streaming=False
 )
@@ -58,8 +71,8 @@ def get_latest_human_question(state: MessagesState) -> str:
 @tool
 def ecommerce_chat_tool(state: MessagesState) -> str:
     """
-    E-commerce chat tool that uses your Chatbot class.
-    This is invoked by the e-commerce agent to handle e-commerce tasks.
+    E-commerce Chat Tool Interface
+    This function serves as an intermediary for handling e-commerce-related tasks within our multi-agent system.
     """
     question = get_latest_human_question(state)
     ans = ecommerce_query(question)
@@ -70,8 +83,9 @@ def ecommerce_chat_tool(state: MessagesState) -> str:
 @tool
 def product_query_tool(state: MessagesState) -> str:
     """
-    Product selection logic.
-    This is invoked by the product-selection agent to handle product queries.
+    Chip Product Selection Query Handler
+
+    This function acts as the primary interface for processing queries related to chip product selection within the product-selection agent.
     """
     question = get_latest_human_question(state)
     return process_user_query(question)
@@ -93,6 +107,7 @@ ecommerce_agent = create_react_agent(
 class RouterOutput(TypedDict):
     next: Literal["product_selection_agent", "ecommerce_agent", "FINISH"]
     instructions: str
+    title: str
     reason: str
 
 
@@ -136,7 +151,7 @@ def supervisor_node(state: SupervisorState) -> Command[
         "END OF CONVERSATION.\n"
     )
 
-    llm_output = model.with_structured_output(RouterOutput).invoke(final_prompt_text)
+    llm_output = model_mini.with_structured_output(RouterOutput).invoke(final_prompt_text)
 
     next_agent = llm_output["next"]
     instructions = llm_output["instructions"]
@@ -144,8 +159,8 @@ def supervisor_node(state: SupervisorState) -> Command[
     reason = llm_output["reason"]
 
     if next_agent == "FINISH":
-        final_answer = produce_final_answer(state["messages"], model)
-        finish_msg = AIMessage(content=final_answer, name="supervisor")
+        final_answer = produce_final_answer(state["messages"], model_o1)
+        finish_msg = AIMessage(content=final_answer, title=title, reason=reason, name="supervisor")
         return Command(
             goto=END,
             update={"messages": state["messages"] + [finish_msg]}
@@ -225,15 +240,26 @@ def pretty_print_messages(update):
 
 
 if __name__ == "__main__":
+    # user_messages = [
+    #     ("user", "I'm looking for 5 products for automotive applications with a Cortex-M23 chip, "
+    #              "and also I'd like to know how to add them to my e-commerce site.")
+    # ]
+
     user_messages = [
-        ("user", "I'm looking for 5 products for automotive applications with a Cortex-M23 chip, "
-                 "and also I'd like to know how to add them to my e-commerce site.")
+        ("user", "I'm looking for 5 products for automotive applications with a Cortex-M23 chip")
     ]
+    #
+    # user_messages = [
+    #     ("user", "I'm looking for 5 products for automotive applications with a Cortex-M23 chip, "
+    #              "and also I'd like to know how to add them to my e-commerce site.")
+    # ]
 
     initial_state = {
         "messages": [],
         "next": "",
-        "instructions": ""
+        "instructions": "",
+        "title": "",
+        "reason": "",
     }
 
     for _, content in user_messages:
