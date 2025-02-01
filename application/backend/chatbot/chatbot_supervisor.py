@@ -31,7 +31,7 @@ model_mini = ChatOpenAI(
 
 model = ChatOpenAI(
     model="gpt-4o",
-    temperature=0,
+    temperature=0.5,
     openai_api_key=openai_api_key,
     streaming=False
 )
@@ -167,7 +167,7 @@ def supervisor_node(state: SupervisorState) -> Command[
     reason = llm_output["reason"]
 
     if next_agent == "FINISH":
-        final_answer = produce_final_answer(state["messages"], model)
+        final_answer = produce_final_answer(state["messages"], model_o1)
         finish_msg = AIMessage(content=final_answer, title=title, reason=reason, name="supervisor")
         return Command(
             goto=END,
