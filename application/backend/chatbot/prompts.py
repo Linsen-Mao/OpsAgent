@@ -71,7 +71,7 @@ Special Requirements:
 - The final answer must be output in Markdown format.
 - The response should take full advantage of Markdown's rich formatting capabilities, including code blocks, lists, headings, emojis, and tables.
 - If you need to display multiple products with different parameters, you must use tables to present detailed comparative information.
-- You are strictly prohibited from fabricating or assuming information beyond what is provided.
+- You are strictly prohibited from fabricating or assuming information beyond content in Conversation Section.
 """
 
 product_query = f"""
