@@ -1,3 +1,4 @@
+// src/components/ChatMessage.jsx
 import React, {useState} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,14 +13,13 @@ const ChatMessage = (props) => {
         status,
         timestamp,
         open,
-        // 以下字段仅用于 assistant 的复合回复消息
         thinking,
         stream,
         final: finalContent,
         finalStatus,
     } = props;
-    
-    // 如果是 assistant 的复合回复消息（包含 thinking、stream 或 final 字段），则按复合渲染
+
+    // 如果是 assistant 的复合回复消息，则按复合渲染
     if (
         sender === "assistant" &&
         (thinking !== undefined || stream !== undefined || finalContent !== undefined)
@@ -29,9 +29,9 @@ const ChatMessage = (props) => {
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style text-blue-400"/>
+                            <UserCircleIcon className="icon-style"/>
                         ) : (
-                            <CpuChipIcon className="icon-style text-purple-400"/>
+                            <CpuChipIcon className="icon-style"/>
                         )}
                     </div>
                     <div className="message-container">
@@ -63,16 +63,16 @@ const ChatMessage = (props) => {
         );
     }
 
-    // 非复合回复消息的渲染逻辑
+    // 如果是 thinking 状态
     if (status === "thinking") {
         return (
             <div className={`chat-message ${sender} thinking`}>
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style text-blue-400"/>
+                            <UserCircleIcon className="icon-style"/>
                         ) : (
-                            <CpuChipIcon className="icon-style text-purple-400"/>
+                            <CpuChipIcon className="icon-style"/>
                         )}
                     </div>
                     <div className="message-container">
@@ -92,15 +92,16 @@ const ChatMessage = (props) => {
         );
     }
 
+    // 如果是 error 状态
     if (status === "error") {
         return (
             <div className={`chat-message ${sender} error`}>
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style text-blue-400"/>
+                            <UserCircleIcon className="icon-style"/>
                         ) : (
-                            <CpuChipIcon className="icon-style text-purple-400"/>
+                            <CpuChipIcon className="icon-style"/>
                         )}
                     </div>
                     <div className="message-container">
@@ -117,15 +118,16 @@ const ChatMessage = (props) => {
         );
     }
 
+    // 如果是 typing 状态
     if (status === "typing") {
         return (
             <div className={`chat-message ${sender} typing`}>
                 <div className="chat-bubble">
                     <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                         {sender === "user" ? (
-                            <UserCircleIcon className="icon-style text-blue-400"/>
+                            <UserCircleIcon className="icon-style"/>
                         ) : (
-                            <CpuChipIcon className="icon-style text-purple-400"/>
+                            <CpuChipIcon className="icon-style"/>
                         )}
                     </div>
                     <div className="message-container">
@@ -145,15 +147,15 @@ const ChatMessage = (props) => {
         );
     }
 
-    // 默认最终回复消息的渲染（如用户消息或普通 assistant 消息）
+    // 默认：最终回复或用户消息
     return (
         <div className={`chat-message ${sender} final`}>
             <div className="chat-bubble">
                 <div className={`avatar ${sender === "user" ? "user-avatar" : ""}`}>
                     {sender === "user" ? (
-                        <UserCircleIcon className="icon-style text-blue-400"/>
+                        <UserCircleIcon className="icon-style"/>
                     ) : (
-                        <CpuChipIcon className="icon-style text-purple-400"/>
+                        <CpuChipIcon className="icon-style"/>
                     )}
                 </div>
                 <div className="message-container">
@@ -166,19 +168,28 @@ const ChatMessage = (props) => {
                             minute: "2-digit",
                         })}
                     </div>
+                    {/* 如果是 assistant 的最终回复，提供复制功能 */}
+                    {sender === "assistant" && finalStatus === "final" && (
+                        <button
+                            className="copy-button"
+                            onClick={() => navigator.clipboard.writeText(content)}
+                            title="Copy message"
+                        >
+                            📋
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
 
-// 用于复合回复中 stream / final 部分的可折叠面板组件
+// Composite Panel 用于显示复合回复中的 stream / final 部分
 const CompositePanel = ({panelType, content, timestamp, isTyping}) => {
     const [isOpen, setIsOpen] = useState(true);
     let header = "";
     let body = "";
     if (panelType === "stream") {
-        // stream 面板标题固定为 DeepThink
         header = "DeepThink";
         body = content;
     } else if (panelType === "final") {

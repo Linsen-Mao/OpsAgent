@@ -1,3 +1,4 @@
+// src/components/ChatContainer.jsx
 import React, {useEffect, useRef, useState} from "react";
 import {v4 as uuidv4} from "uuid";
 import ChatMessage from "./ChatMessage";
@@ -13,7 +14,7 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
     const streamBaseRef = useRef({});
     const streamChainRef = useRef({});
 
-    const TYPING_SPEED = 10;
+    const TYPING_SPEED = 17;
     const TYPING_SPEED_FINAL = 5;
 
     useEffect(() => {
@@ -101,7 +102,6 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
         if (!userInput.trim() || loading) return;
         setLoading(true);
 
-        // 添加用户消息
         const userMsg = {
             sender: "user",
             content: userInput,
@@ -109,7 +109,6 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
             timestamp: Date.now(),
         };
 
-        // 创建 assistant 的复合回复消息
         const assistantMsgId = uuidv4();
         streamBaseRef.current[assistantMsgId] = "";
         streamChainRef.current[assistantMsgId] = Promise.resolve();
@@ -197,12 +196,14 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
                 {localMessages.length === 0 ? (
                     <div className="empty-chat">
                         <h1>OpsAgent</h1>
-                        <p>Welcome to Prestashop Support Chat.<br/>Ask me anything!</p>
+                        <p>
+                            Welcome to Prestashop Support Chat.
+                            <br/>
+                            Ask me anything!
+                        </p>
                     </div>
                 ) : (
-                    localMessages.map((m) => (
-                        <ChatMessage key={m.id} {...m} />
-                    ))
+                    localMessages.map((m) => <ChatMessage key={m.id} {...m} />)
                 )}
                 <div ref={messageEndRef}/>
             </div>

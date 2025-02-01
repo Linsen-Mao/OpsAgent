@@ -9,15 +9,16 @@ html, body {
     padding: 0;
 }
 
+/* 主容器背景及文本颜色 */
 .home-container {
     position: relative;
     display: flex;
     height: 100vh;
-    background-color: #FAFAFA; /* 非常浅的白灰色 */
-    color: #333; /* 深灰文字 */
+    background-color: #FAFAFA;
+    color: #333;
 }
 
-/* 水印背景，仅在无消息时作为背景水印显示 */
+/* 水印背景，仅在无消息时显示 */
 .home-container::before {
     content: "OpsAgent";
     position: absolute;
@@ -30,6 +31,8 @@ html, body {
     pointer-events: none;
 }
 
+
+/* 聊天容器 */
 .chat-container {
     flex: 1;
     display: flex;
@@ -67,6 +70,7 @@ html, body {
     color: #666;
 }
 
+/* 消息样式 */
 .chat-message {
     margin: 12px 0;
     display: flex;
@@ -299,6 +303,19 @@ blockquote {
     text-align: right;
 }
 
+/* 复制按钮 */
+.copy-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    margin-left: 8px;
+    font-size: 1rem;
+}
+
+.copy-button:hover {
+    color: #555;
+}
+
 /* 刷新按钮（左上角） */
 .refresh-button {
     position: absolute;
@@ -320,7 +337,7 @@ blockquote {
     display: block;
 }
 
-/* Composite Panel: stream 类型的内容颜色调淡 */
+/* Composite Panel: stream 内容颜色调淡 */
 .composite-panel.stream .composite-panel-body {
     color: #777;
 }

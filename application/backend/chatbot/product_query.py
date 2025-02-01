@@ -92,21 +92,16 @@ def generate_sql_query(user_question, column_mapping, table_name):
             "   - Use LIKE with % wildcards for pattern matching\n"
             "   - Consider common spelling variants and multilingual terms\n\n"
 
-            "2. 【Intelligent Fallback】Return top 5 products when:\n"
+            "2. 【Intelligent Fallback】Return more products when:\n"
             "   - Uncertain about exact filter criteria\n"
             "   - Ambiguous user description\n"
             "   - Multiple possible field interpretations\n"
             "   - Syntax ambiguities detected\n\n"
 
-            "3. 【Result Control】Dynamic row limitation:\n"
-            "   - Default: SELECT ... LIMIT 5\n"
-            "   - When user specifies quantity:\n"
-            "     • ≤10 rows: Use specified number\n"
-            "     • >10 rows: Return first 10 only\n\n"
-
             "4. 【Column Optimization】:\n"
-            "   - Auto-identify relevant columns (e.g., include price for cost queries)\n"
-            "   - Preserve key identifiers (id, name, sku)\n"
+            "   - Auto-identify relevant columns\n"
+            "   - Preserve key identifiers\n"
+            "   - Use Columns with values varied to ensure the result is distinct\n"
             "   - Exclude unrelated columns for efficiency\n\n"
 
             "5. 【Format Requirements】:\n"

@@ -20,9 +20,10 @@ from application.backend.chatbot.prompts import product_query_prompt, ecommerce_
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
+deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
 
 model_mini = ChatOpenAI(
-    model="gpt-4o-mini",
+    model="gpt-3.5-turbo",
     temperature=0,
     openai_api_key=openai_api_key,
     streaming=False
@@ -39,6 +40,13 @@ model_o1 = ChatOpenAI(
     model="o1-mini",
     openai_api_key=openai_api_key,
     streaming=False
+)
+
+reason_llm = ChatOpenAI(
+    base_url="https://api.deepseek.com",
+    openai_api_key=deepseek_api_key,
+    model='deepseek-reasoner',
+    max_tokens=1000,
 )
 
 
@@ -151,7 +159,7 @@ def supervisor_node(state: SupervisorState) -> Command[
         "END OF CONVERSATION.\n"
     )
 
-    llm_output = model_mini.with_structured_output(RouterOutput).invoke(final_prompt_text)
+    llm_output = model.with_structured_output(RouterOutput).invoke(final_prompt_text)
 
     next_agent = llm_output["next"]
     instructions = llm_output["instructions"]
