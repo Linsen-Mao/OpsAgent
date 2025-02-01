@@ -10,12 +10,9 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
 
     const messageEndRef = useRef(null);
     const typingTimeoutRef = useRef(null);
-    // 保存每个 assistant 消息当前已完成的 stream 文本
     const streamBaseRef = useRef({});
-    // 保存每个 assistant 消息的 stream 逐字打印“链”
     const streamChainRef = useRef({});
 
-    // 打字速度（毫秒）
     const TYPING_SPEED = 10;
     const TYPING_SPEED_FINAL = 5;
 
@@ -33,33 +30,35 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
         };
     }, []);
 
-    // 更新指定 assistant 消息（复合消息）的内容
+    // 清除后端返回内容前后的 ```markdown 和 ```
+    const cleanMarkdown = (content) => {
+        return content.replace(/^```markdown\s*|```$/g, "");
+    };
+
     const updateAssistantMessage = (messageId, updater) => {
         setLocalMessages((prev) =>
             prev.map((m) => (m.id === messageId ? updater(m) : m))
         );
     };
 
-    // 对 stream 新 chunk 进行逐字打字效果，并返回一个 Promise，当打字完成后 resolve
     const typeOutStreamChunk = (newChunk, messageId) => {
         return new Promise((resolve) => {
+            const cleanedChunk = cleanMarkdown(newChunk);
             const currentBase = streamBaseRef.current[messageId] || "";
-            // 如果已有内容，先添加换行
             const separator = currentBase ? "\n\n" : "";
             const baseForNewChunk = currentBase + separator;
             let index = 0;
             const typeChar = () => {
-                if (index < newChunk.length) {
+                if (index < cleanedChunk.length) {
                     updateAssistantMessage(messageId, (msg) => ({
                         ...msg,
-                        stream: baseForNewChunk + newChunk.slice(0, index + 1),
-                        content: baseForNewChunk + newChunk.slice(0, index + 1), // 同步 content 字段（供后端读取）
+                        stream: baseForNewChunk + cleanedChunk.slice(0, index + 1),
+                        content: baseForNewChunk + cleanedChunk.slice(0, index + 1),
                     }));
                     index++;
                     typingTimeoutRef.current = setTimeout(typeChar, TYPING_SPEED);
                 } else {
-                    // 保存完整的新 chunk 到 streamBase 中
-                    streamBaseRef.current[messageId] = baseForNewChunk + newChunk;
+                    streamBaseRef.current[messageId] = baseForNewChunk + cleanedChunk;
                     updateAssistantMessage(messageId, (msg) => ({
                         ...msg,
                         stream: streamBaseRef.current[messageId],
@@ -72,17 +71,17 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
         });
     };
 
-    // 对最终答案进行逐字打字效果，并返回 Promise
     const typeOutFinalAnswer = (fullText, messageId) => {
         return new Promise((resolve) => {
+            const cleanedText = cleanMarkdown(fullText);
             let index = 0;
             const typeChar = () => {
-                if (index < fullText.length) {
-                    const currentText = fullText.slice(0, index + 1);
+                if (index < cleanedText.length) {
+                    const currentText = cleanedText.slice(0, index + 1);
                     updateAssistantMessage(messageId, (msg) => ({
                         ...msg,
                         final: currentText,
-                        content: currentText, // 同步 content 字段
+                        content: currentText,
                     }));
                     index++;
                     typingTimeoutRef.current = setTimeout(typeChar, TYPING_SPEED_FINAL);
@@ -102,7 +101,7 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
         if (!userInput.trim() || loading) return;
         setLoading(true);
 
-        // 用户消息
+        // 添加用户消息
         const userMsg = {
             sender: "user",
             content: userInput,
@@ -110,10 +109,8 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
             timestamp: Date.now(),
         };
 
-        // 创建 assistant 的复合回复消息，包含三个部分：thinking、stream、final
-        // 同时保证顶级 content 字段存在（后端读取时用到）
+        // 创建 assistant 的复合回复消息
         const assistantMsgId = uuidv4();
-        // 初始化该消息的 streamBase 和 streamChain
         streamBaseRef.current[assistantMsgId] = "";
         streamChainRef.current[assistantMsgId] = Promise.resolve();
         const assistantMsg = {
@@ -123,14 +120,13 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
             thinking: true,
             stream: "",
             final: "",
-            finalStatus: "pending", // 后续更新为 "typing" 再变为 "final"
+            finalStatus: "pending",
             content: "Thinking",
         };
 
         const updatedMessages = [...localMessages, userMsg, assistantMsg];
         setLocalMessages(updatedMessages);
         onUpdateMessages(updatedMessages);
-
         setUserInput("");
 
         try {
@@ -151,16 +147,11 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
                     try {
                         const parsed = JSON.parse(dataLine.slice(6));
                         if (parsed.type === "stream") {
-                            // 这里后端返回的 stream 数据包含 title 与 reason，
-                            // 格式化为 "**title**\nreason"
                             const {title, reason} = parsed.data;
                             const newLine = `**${title}**\n\n${reason}`;
-                            // 将本次 stream 打字任务追加到该 assistant 消息的链上
                             streamChainRef.current[assistantMsgId] = streamChainRef.current[assistantMsgId]
                                 .then(() => typeOutStreamChunk(newLine, assistantMsgId));
                         } else if (parsed.type === "final") {
-                            // 收到 final 消息后，不立即启动最终答案的打字，
-                            // 而是将其追加到 streamChain 链上，等待所有 stream 打字完成后再执行
                             streamChainRef.current[assistantMsgId] = streamChainRef.current[assistantMsgId]
                                 .then(() => {
                                     updateAssistantMessage(assistantMsgId, (msg) => ({
@@ -203,9 +194,16 @@ const ChatContainer = ({conversation, onUpdateMessages}) => {
     return (
         <div className="chat-container">
             <div className="chat-messages">
-                {localMessages.map((m) => (
-                    <ChatMessage key={m.id} {...m} />
-                ))}
+                {localMessages.length === 0 ? (
+                    <div className="empty-chat">
+                        <h1>OpsAgent</h1>
+                        <p>Welcome to Prestashop Support Chat.<br/>Ask me anything!</p>
+                    </div>
+                ) : (
+                    localMessages.map((m) => (
+                        <ChatMessage key={m.id} {...m} />
+                    ))
+                )}
                 <div ref={messageEndRef}/>
             </div>
             <div className="chat-input-area">

@@ -10,14 +10,14 @@ html, body {
 }
 
 .home-container {
-    position: relative; /* 便于水印定位 */
+    position: relative;
     display: flex;
     height: 100vh;
-    background-color: #FAFAFA;
-    color: #333;
+    background-color: #FAFAFA; /* 非常浅的白灰色 */
+    color: #333; /* 深灰文字 */
 }
 
-/* 背景水印 */
+/* 水印背景，仅在无消息时作为背景水印显示 */
 .home-container::before {
     content: "OpsAgent";
     position: absolute;
@@ -39,14 +39,6 @@ html, body {
     z-index: 1;
 }
 
-.chat-wrapper {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    z-index: 1;
-}
-
 .chat-messages {
     flex: 1;
     overflow-y: auto;
@@ -54,18 +46,31 @@ html, body {
     scroll-behavior: smooth;
 }
 
-/* 新消息淡入动画 */
+/* 空状态下居中显示介绍 */
+.empty-chat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+}
+
+.empty-chat h1 {
+    font-size: 3rem;
+    margin: 0;
+}
+
+.empty-chat p {
+    font-size: 1.25rem;
+    margin: 0.5rem 0 0;
+    color: #666;
+}
+
 .chat-message {
     margin: 12px 0;
     display: flex;
-    opacity: 0;
-    animation: fadeIn 0.3s forwards;
-}
-
-@keyframes fadeIn {
-    to {
-        opacity: 1;
-    }
+    transition: opacity 0.3s ease;
 }
 
 .chat-message.bot {
@@ -213,7 +218,6 @@ html, body {
     line-height: 1.4;
 }
 
-/* 代码块与内联代码 */
 pre {
     padding: 1rem !important;
     border-radius: 8px;
@@ -230,7 +234,6 @@ pre {
     font-size: 0.9em;
 }
 
-/* 引用块 */
 blockquote {
     margin: 0.8em 0;
     padding: 0.8em 1.2em;
@@ -239,7 +242,6 @@ blockquote {
     color: #333;
 }
 
-/* 输入区域 */
 .chat-input-area {
     padding: 16px;
     display: flex;
@@ -290,7 +292,6 @@ blockquote {
     cursor: not-allowed;
 }
 
-/* 消息时间戳 */
 .message-timestamp {
     font-size: 0.75rem;
     color: #666;
@@ -298,7 +299,7 @@ blockquote {
     text-align: right;
 }
 
-/* 刷新按钮 */
+/* 刷新按钮（左上角） */
 .refresh-button {
     position: absolute;
     top: 16px;
@@ -324,7 +325,6 @@ blockquote {
     color: #777;
 }
 
-/* 响应式 */
 @media (max-width: 768px) {
     .home-container {
         flex-direction: column;

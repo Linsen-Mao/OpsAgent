@@ -18,7 +18,7 @@ const ChatMessage = (props) => {
         final: finalContent,
         finalStatus,
     } = props;
-
+    
     // 如果是 assistant 的复合回复消息（包含 thinking、stream 或 final 字段），则按复合渲染
     if (
         sender === "assistant" &&
